@@ -1,0 +1,407 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modulo Movistar | Conciliacion Telefonica PRODAC</title>
+  <meta name="description" content="Conciliacion mensual de Movistar por centro de costo - PRODAC">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" style="text-decoration:none;">
+        <svg class="prodac-logo-svg" viewBox="0 0 135 38" fill="none">
+          <path d="M19 3L34 11.5V28.5L19 37L4 28.5V11.5L19 3Z" stroke="#00A3E0" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M19 12L25 15.5V22.5L19 26L13 22.5V15.5L19 12Z" stroke="#00A3E0" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M13 19V32" stroke="#00A3E0" stroke-width="3.2" stroke-linecap="round"/>
+          <text x="42" y="27" fill="#FFFFFF" font-family="Inter,system-ui,sans-serif" font-size="22" font-weight="800" letter-spacing="-0.5px">prodac</text>
+        </svg>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button type="button" class="nav-item active" id="nav-dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Dashboard</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-upload">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
+        <span>Cargar archivos</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-results">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Resultados</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-sin-cc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Sin CC - Revisar</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-export">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Descargar reporte</span>
+      </button>
+
+      <div class="sidebar-section-title">Paginas de Operadoras</div>
+
+      <a href="claro.html" class="operator-item" style="text-decoration:none;">
+        <div class="op-left">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+          <span>Claro</span>
+        </div>
+        <span class="op-badge-soon">Habilitado</span>
+      </a>
+
+      <a href="movistar.html" class="operator-item claro active" style="text-decoration:none;">
+        <div class="op-left">
+          <span style="font-weight:800;font-size:0.95rem;color:#38BDF8;">M</span>
+          <span>Movistar</span>
+        </div>
+        <span class="op-badge-soon" style="background:#0284C7;color:#fff;">Habilitado</span>
+      </a>
+
+      <a href="entel.html" class="operator-item" style="text-decoration:none;">
+        <div class="op-left">
+          <span style="font-weight:800;font-size:0.85rem;color:#FB923C;">e)</span>
+          <span>Entel</span>
+        </div>
+        <span class="op-badge-soon">Pagina Aparte</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">Conectando negocios con el mundo</div>
+  </aside>
+
+  <main class="main-wrapper">
+    <!-- Encabezado -->
+    <div class="top-header-row">
+      <div class="header-title-group">
+        <h1>Modulo Movistar</h1>
+        <p>Conciliacion mensual por centro de costo</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div class="period-badge-btn" id="period-picker-btn">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="period-display-text">Periodo: Pendiente de carga</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="movistar-alert-container"></div>
+
+    <!-- Panel de Carga -->
+    <section class="upload-panel-card" id="section-carga-archivos">
+      <div class="upload-panel-header">
+        <div class="upload-panel-title">
+          <span class="badge-num-step">1</span>
+          <h2>Carga de archivos &ndash; Movistar</h2>
+        </div>
+        <div class="upload-panel-subtitle">
+          Carga los 5 archivos requeridos. Los descuentos se extraen automaticamente del PDF.
+        </div>
+      </div>
+
+      <!-- Grid 3+2 -->
+      <div class="movistar-upload-grid">
+
+        <!-- 01 Fact -->
+        <div class="upload-file-card" id="card-wrap-fact">
+          <div class="card-step-num">01</div>
+          <span class="card-check-corner d-none" id="check-icon-fact">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Archivo Fact</h3>
+          <p class="card-file-format">XLSX Protegido (Fact_*.xlsx)</p>
+          <div class="card-drop-box" id="dropzone-fact" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-excel-green">X</span>
+              <span class="card-filename-text" id="name-fact-file" style="color:var(--text-muted);">Arrastra o haz clic aqui</span>
+            </div>
+            <button type="button" class="btn-remove-card-file d-none" id="btn-remove-fact" title="Retirar">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-fact-file" accept=".xlsx,.xls" class="d-none">
+        </div>
+
+        <!-- 02 Traf -->
+        <div class="upload-file-card" id="card-wrap-traf">
+          <div class="card-step-num">02</div>
+          <span class="card-check-corner d-none" id="check-icon-traf">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Archivo Traf</h3>
+          <p class="card-file-format">XLSX Protegido (Traf_*.xlsx)</p>
+          <div class="card-drop-box" id="dropzone-traf" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-excel-green">X</span>
+              <span class="card-filename-text" id="name-traf-file" style="color:var(--text-muted);">Arrastra o haz clic aqui</span>
+            </div>
+            <button type="button" class="btn-remove-card-file d-none" id="btn-remove-traf" title="Retirar">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-traf-file" accept=".xlsx,.xls" class="d-none">
+        </div>
+
+        <!-- 03 Cargos -->
+        <div class="upload-file-card" id="card-wrap-cargos">
+          <div class="card-step-num">03</div>
+          <span class="card-check-corner d-none" id="check-icon-cargos">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Archivo Cargos</h3>
+          <p class="card-file-format">XLSX Protegido (Cargos_*.xlsx)</p>
+          <div class="card-drop-box" id="dropzone-cargos" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-excel-green">X</span>
+              <span class="card-filename-text" id="name-cargos-file" style="color:var(--text-muted);">Arrastra o haz clic aqui</span>
+            </div>
+            <button type="button" class="btn-remove-card-file d-none" id="btn-remove-cargos" title="Retirar">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-cargos-file" accept=".xlsx,.xls" class="d-none">
+        </div>
+
+        <!-- 04 Inventario -->
+        <div class="upload-file-card" id="card-wrap-inventory">
+          <div class="card-step-num">04</div>
+          <span class="card-check-corner d-none" id="check-icon-inventory">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Inventario Celulares General</h3>
+          <p class="card-file-format">Excel con hoja PRODAC</p>
+          <div class="card-drop-box" id="dropzone-inventory" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-excel-green">X</span>
+              <span class="card-filename-text" id="name-inventory-file" style="color:var(--text-muted);">Arrastra o haz clic aqui</span>
+            </div>
+            <button type="button" class="btn-remove-card-file d-none" id="btn-remove-inventory" title="Retirar">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-inventory-file" accept=".xlsx,.xls" class="d-none">
+        </div>
+
+        <!-- 05 PDF -->
+        <div class="upload-file-card" id="card-wrap-pdf">
+          <div class="card-step-num">05</div>
+          <span class="card-check-corner d-none" id="check-icon-pdf">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Recibo PDF Movistar</h3>
+          <p class="card-file-format">PDF Oficial del Mes</p>
+          <div class="card-drop-box" id="dropzone-pdf" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-pdf-red">PDF</span>
+              <span class="card-filename-text" id="name-pdf-file" style="color:var(--text-muted);">Arrastra o haz clic aqui</span>
+            </div>
+            <button type="button" class="btn-remove-card-file d-none" id="btn-remove-pdf" title="Retirar">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-pdf-file" accept=".pdf" class="d-none">
+        </div>
+
+      </div><!-- /movistar-upload-grid -->
+
+      <!-- Campo Contrasena -->
+      <div class="movistar-password-box">
+        <label for="input-movistar-password" class="movistar-password-label">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Contrasena de los archivos del mes</span>
+        </label>
+        <div class="movistar-password-field-wrap">
+          <input type="password" id="input-movistar-password" class="password-input-field"
+                 placeholder="Ingresa la contrasena mensual" autocomplete="new-password">
+          <button type="button" class="btn-eye-toggle" id="btn-toggle-password" title="Ver / ocultar">
+            <svg id="icon-eye-open" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="icon-eye-closed" class="d-none" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Botones -->
+      <div class="upload-buttons-bar">
+        <button type="button" class="btn-blue-action" id="btn-process-files">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>Procesar archivos</span>
+        </button>
+        <button type="button" class="btn-white-action" id="btn-clear-files">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Limpiar</span>
+        </button>
+        <button type="button" class="btn-outline-download" id="btn-export-excel" disabled>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Descargar Excel conciliado</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ====================================================
+         SECCION DE RESULTADOS
+         ==================================================== -->
+    <div id="section-resultados-movistar" class="d-none">
+
+      <!-- Banner conciliacion -->
+      <div class="conciliation-banner-card" id="conciliation-banner">
+        <div class="banner-left-group">
+          <div class="banner-check-circle" id="banner-status-circle">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <h3 class="banner-title-text" id="banner-title-text">La conciliacion cuadra</h3>
+            <p class="banner-sub-text"  id="banner-sub-text">Los totales coinciden con el recibo PDF.</p>
+          </div>
+        </div>
+        <div class="banner-pill-cuadra" id="banner-pill-badge">CUADRA</div>
+      </div>
+
+      <!-- KPIs - primera fila -->
+      <div class="movistar-kpis-8-grid">
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Lineas / Anexos</span>
+            <span class="kpi-value-bold" id="kpi-val-lineas">0</span>
+            <span class="kpi-subtext-ref" id="kpi-sub-lineas">0 anexos en el PDF</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Descuentos 12 m</span>
+            <span class="kpi-value-bold" id="kpi-val-desc-total">S/ 0.00</span>
+            <span class="kpi-subtext-ref" id="kpi-sub-desc-count">0 lineas con descuento</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">MONTO total</span>
+            <span class="kpi-value-bold" id="kpi-val-cargo-sin-igv">S/ 0.00</span>
+            <span class="kpi-subtext-ref">Col T + Col AC (Fact)</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">MONTO F (Subtotal)</span>
+            <span class="kpi-value-bold" id="kpi-val-cargo-final-sin-igv">S/ 0.00</span>
+            <span class="kpi-subtext-ref">MONTO - DESC</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8l-8 8"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">IGV (18%)</span>
+            <span class="kpi-value-bold" id="kpi-val-igv">S/ 0.00</span>
+            <span class="kpi-subtext-ref">18% sobre MONTO F</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Equipos (Inafectos)</span>
+            <span class="kpi-value-bold" id="kpi-val-equipos">S/ 0.00</span>
+            <span class="kpi-subtext-ref">Cuotas financiamiento</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Total del recibo PDF</span>
+            <span class="kpi-value-bold" id="kpi-val-total-pdf">S/ 0.00</span>
+            <span class="kpi-subtext-ref" id="kpi-sub-calc">Calculado: S/ 0.00</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Diferencia</span>
+            <span class="kpi-value-bold text-green" id="kpi-val-diferencia">S/ 0.00</span>
+            <span class="kpi-subtext-ref" id="kpi-sub-diferencia">La conciliacion cuadra</span>
+          </div>
+        </div>
+
+      </div><!-- /kpis -->
+
+      <!-- Tablas inferiores -->
+      <div class="two-columns-bottom-grid">
+
+        <div class="table-widget-card" id="section-resumen-cc">
+          <div class="table-widget-header">
+            <div class="table-widget-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <span>Resumen por CC Dpto.</span>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="clean-corp-table">
+              <thead><tr><th>Centro de costo</th><th>Lineas</th><th>Costo sin IGV</th><th>% del total</th></tr></thead>
+              <tbody id="tbody-resumen-cc"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-widget-card" id="section-sin-cc-movistar">
+          <div class="table-widget-header">
+            <div class="table-widget-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>Sin CC - Revisar</span>
+            </div>
+            <button type="button" class="btn-white-action d-none" id="btn-download-sin-cc" style="font-size:0.78rem;padding:0.35rem 0.8rem;">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Descargar observaciones</span>
+            </button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="clean-corp-table">
+              <thead><tr><th>Numero</th><th>Plan</th><th>Monto final</th><th>Observacion</th></tr></thead>
+              <tbody id="tbody-sin-cc-movistar"></tbody>
+            </table>
+            <div id="empty-sin-cc-msg" style="padding:1.5rem;text-align:center;color:#10B981;font-weight:600;font-size:0.86rem;">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:0.35rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Todas las lineas tienen centro de costo en el inventario.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /resultados -->
+
+  </main>
+
+  <script src="js/movistar.js"></script>
+</body>
+</html>

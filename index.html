@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Módulo Claro | Conciliación Telefónica PRODAC</title>
+  <meta name="description" content="Distribución mensual de Claro por centro de costo - PRODAC y PRODIMIN">
+
+  <!-- Tipografía Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Estilos CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/components.css">
+
+  <!-- Librerías Externas -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+
+  <!-- ==========================================
+       MENÚ LATERAL CORPORATIVO PRODAC
+       ========================================== -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" style="text-decoration: none;">
+        <svg class="prodac-logo-svg" viewBox="0 0 135 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 3L34 11.5V28.5L19 37L4 28.5V11.5L19 3Z" stroke="#00A3E0" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M19 12L25 15.5V22.5L19 26L13 22.5V15.5L19 12Z" stroke="#00A3E0" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M13 19V32" stroke="#00A3E0" stroke-width="3.2" stroke-linecap="round"/>
+          <text x="42" y="27" fill="#FFFFFF" font-family="'Inter', system-ui, sans-serif" font-size="22" font-weight="800" letter-spacing="-0.5px">prodac</text>
+        </svg>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button type="button" class="nav-item active" id="nav-dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Dashboard</span>
+      </button>
+
+      <button type="button" class="nav-item" id="nav-upload">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
+        <span>Cargar archivos</span>
+      </button>
+
+      <button type="button" class="nav-item" id="nav-results">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Resultados</span>
+      </button>
+
+      <button type="button" class="nav-item" id="nav-sin-cc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Sin CC - Revisar</span>
+      </button>
+
+      <button type="button" class="nav-item" id="nav-export">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Descargar reporte</span>
+      </button>
+
+      <!-- Páginas Separadas por Operadora -->
+      <div class="sidebar-section-title">Páginas de Operadoras</div>
+
+      <!-- Página Claro (Activa en esta vista) -->
+      <a href="claro.html" class="operator-item claro active" style="text-decoration: none;">
+        <div class="op-left">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+          <span>Claro</span>
+        </div>
+        <span class="op-badge-soon" style="background: rgba(16, 185, 129, 0.25); color: #10B981;">Habilitado</span>
+      </a>
+
+      <!-- Página Movistar (Página aparte) -->
+      <a href="movistar.html" class="operator-item" style="text-decoration: none;" title="Ir a la página separada de Movistar">
+        <div class="op-left">
+          <span style="font-weight: 800; font-size: 0.9rem; color: #38BDF8;">M</span>
+          <span>Movistar</span>
+        </div>
+        <span class="op-badge-soon">Página Aparte</span>
+      </a>
+
+      <!-- Página Entel (Página aparte) -->
+      <a href="entel.html" class="operator-item" style="text-decoration: none;" title="Ir a la página separada de Entel">
+        <div class="op-left">
+          <span style="font-weight: 800; font-size: 0.85rem; color: #FB923C;">e)</span>
+          <span>Entel</span>
+        </div>
+        <span class="op-badge-soon">Página Aparte</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      Conectando negocios con el mundo
+    </div>
+  </aside>
+
+  <!-- ==========================================
+       ÁREA PRINCIPAL DE CONTENIDO (MÓDULO CLARO)
+       ========================================== -->
+  <main class="main-wrapper">
+    <!-- Encabezado Superior -->
+    <div class="top-header-row">
+      <div class="header-title-group">
+        <h1>Módulo Claro</h1>
+        <p>Distribución mensual por centro de costo</p>
+      </div>
+
+      <div class="period-badge-btn" id="period-picker-btn">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="period-display-text">Periodo: Agosto 2026</span>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+
+    <!-- Pestañas Independientes: PRODAC / PRODIMIN -->
+    <div class="company-tabs-container">
+      <button type="button" class="btn-company-tab active" id="tab-prodac" data-company="PRODAC">PRODAC</button>
+      <button type="button" class="btn-company-tab" id="tab-prodimin" data-company="PRODIMIN">PRODIMIN</button>
+    </div>
+
+    <!-- ==========================================
+         SECCIÓN 1: CARGA DE ARCHIVOS
+         ========================================== -->
+    <section class="upload-panel-card" id="section-carga-archivos">
+      <div class="upload-panel-header">
+        <div class="upload-panel-title">
+          <span class="badge-num-step">1</span>
+          <h2>Carga de archivos - <span id="label-active-company">PRODAC</span></h2>
+        </div>
+        <div class="upload-panel-subtitle">
+          Carga los 3 archivos requeridos para procesar la conciliación de Claro.
+        </div>
+      </div>
+
+      <!-- 3 Cajas de Carga -->
+      <div class="upload-cards-row">
+        <!-- 01. Excel de Claro -->
+        <div class="upload-file-card" id="card-wrap-claro">
+          <div class="card-step-num">01</div>
+          <span class="card-check-corner" id="check-icon-claro">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Excel de Claro</h3>
+          <p class="card-file-format">XLSX - Factura Detallada</p>
+
+          <div class="card-drop-box" id="dropzone-claro" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-excel-green">X</span>
+              <span class="card-filename-text" id="name-claro-file">Claro-AgoS.xlsx</span>
+            </div>
+            <button type="button" class="btn-remove-card-file" id="btn-remove-claro" title="Retirar archivo">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-claro-file" accept=".xlsx,.xls,.csv" class="d-none">
+        </div>
+
+        <!-- 02. Inventario General -->
+        <div class="upload-file-card" id="card-wrap-inv">
+          <div class="card-step-num">02</div>
+          <span class="card-check-corner" id="check-icon-inv">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Inventario General</h3>
+          <p class="card-file-format">XLSX</p>
+
+          <div class="card-drop-box" id="dropzone-inv" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-excel-green">X</span>
+              <span class="card-filename-text" id="name-inv-file">Inventario Celulares General.xlsx</span>
+            </div>
+            <button type="button" class="btn-remove-card-file" id="btn-remove-inv" title="Retirar archivo">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-inv-file" accept=".xlsx,.xls,.csv" class="d-none">
+        </div>
+
+        <!-- 03. Recibo PDF de Claro -->
+        <div class="upload-file-card" id="card-wrap-pdf">
+          <div class="card-step-num">03</div>
+          <span class="card-check-corner" id="check-icon-pdf">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Recibo PDF de Claro</h3>
+          <p class="card-file-format">PDF</p>
+
+          <div class="card-drop-box" id="dropzone-pdf" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-pdf-red">PDF</span>
+              <span class="card-filename-text" id="name-pdf-file">Claro-Ago.pdf</span>
+            </div>
+            <button type="button" class="btn-remove-card-file" id="btn-remove-pdf" title="Retirar archivo">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-pdf-file" accept=".pdf" class="d-none">
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="upload-buttons-bar">
+        <button type="button" class="btn-blue-action" id="btn-process-files">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>Procesar archivos</span>
+        </button>
+
+        <button type="button" class="btn-white-action" id="btn-clear-files">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Limpiar</span>
+        </button>
+
+        <button type="button" class="btn-outline-download" id="btn-export-excel">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Descargar Excel conciliado</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         BANNER DE CONCILIACIÓN
+         ========================================== -->
+    <div class="conciliation-banner-card" id="conciliation-banner">
+      <div class="banner-left-group">
+        <div class="banner-check-circle" id="banner-status-circle">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div>
+          <h3 class="banner-title-text" id="banner-title-text">La conciliación cuadra</h3>
+          <p class="banner-sub-text" id="banner-sub-text">Los totales del archivo de Claro coinciden con el inventario.</p>
+        </div>
+      </div>
+      <div class="banner-pill-cuadra" id="banner-pill-badge">CUADRA</div>
+    </div>
+
+    <!-- ==========================================
+         FILA DE 4 KPIS
+         ========================================== -->
+    <div class="conciliation-kpis-grid">
+      <!-- 1. Líneas procesadas -->
+      <div class="card-kpi-concil">
+        <div class="kpi-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div class="kpi-content-box">
+          <span class="kpi-label-small">Líneas procesadas</span>
+          <span class="kpi-value-bold" id="kpi-val-lineas">29</span>
+          <span class="kpi-subtext-ref" id="kpi-sub-lineas">Del inventario de PRODAC</span>
+        </div>
+      </div>
+
+      <!-- 2. Total por líneas -->
+      <div class="card-kpi-concil">
+        <div class="kpi-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <div class="kpi-content-box">
+          <span class="kpi-label-small">Total por líneas</span>
+          <span class="kpi-value-bold" id="kpi-val-total-lineas">S/ 2,030.72</span>
+          <span class="kpi-subtext-ref">Monto del inventario</span>
+        </div>
+      </div>
+
+      <!-- 3. Cargos del Mes -->
+      <div class="card-kpi-concil">
+        <div class="kpi-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
+        </div>
+        <div class="kpi-content-box">
+          <span class="kpi-label-small">Cargos del Mes</span>
+          <span class="kpi-value-bold" id="kpi-val-cargos-mes">S/ 2,030.72</span>
+          <span class="kpi-subtext-ref">Según archivo de Claro</span>
+        </div>
+      </div>
+
+      <!-- 4. Diferencia -->
+      <div class="card-kpi-concil">
+        <div class="kpi-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <div class="kpi-content-box">
+          <span class="kpi-label-small">Diferencia</span>
+          <span class="kpi-value-bold text-green" id="kpi-val-diferencia">S/ 0.00</span>
+          <span class="kpi-subtext-ref" id="kpi-sub-diferencia">La conciliación cuadra</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         SECCIÓN DE 2 COLUMNAS (RESUMEN Y DETALLE)
+         ========================================== -->
+    <div class="two-columns-bottom-grid">
+      <!-- Columna 1: Resumen por CC Dpto. -->
+      <div class="table-widget-card">
+        <div class="table-widget-header">
+          <div class="table-widget-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>Resumen por CC Dpto.</span>
+          </div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="clean-corp-table">
+            <thead>
+              <tr>
+                <th>Centro de costo</th>
+                <th>Descripción</th>
+                <th>Líneas</th>
+                <th>Costo sin IGV</th>
+                <th>% del total</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-resumen-cc">
+              <tr>
+                <td><strong>CC-001</strong></td>
+                <td>Administración</td>
+                <td>12</td>
+                <td>S/ 840.50</td>
+                <td>41.4%</td>
+              </tr>
+              <tr>
+                <td><strong>CC-002</strong></td>
+                <td>Comercial</td>
+                <td>8</td>
+                <td>S/ 612.30</td>
+                <td>30.1%</td>
+              </tr>
+              <tr>
+                <td><strong>CC-003</strong></td>
+                <td>Operaciones</td>
+                <td>6</td>
+                <td>S/ 375.20</td>
+                <td>18.5%</td>
+              </tr>
+              <tr>
+                <td><strong>CC-004</strong></td>
+                <td>Sistemas</td>
+                <td>3</td>
+                <td>S/ 202.72</td>
+                <td>10.0%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Columna 2: Detalle y observaciones -->
+      <div class="table-widget-card">
+        <div class="table-widget-header">
+          <div class="table-widget-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Detalle y observaciones</span>
+          </div>
+          <a class="link-ver-todos-action" id="btn-ver-todos-detalle">Ver todos</a>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="clean-corp-table">
+            <thead>
+              <tr>
+                <th>Línea</th>
+                <th>Usuario</th>
+                <th>Centro de costo</th>
+                <th>Cargo del mes</th>
+                <th>Observación</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-detalle-preview">
+              <tr>
+                <td style="font-family: ui-monospace, monospace; font-weight:600;">987654321</td>
+                <td>Juan Pérez</td>
+                <td>CC-001</td>
+                <td>S/ 89.90</td>
+                <td><span class="badge-status-ok">OK</span></td>
+              </tr>
+              <tr>
+                <td style="font-family: ui-monospace, monospace; font-weight:600;">987654322</td>
+                <td>María López</td>
+                <td>CC-002</td>
+                <td>S/ 72.50</td>
+                <td><span class="badge-status-ok">OK</span></td>
+              </tr>
+              <tr>
+                <td style="font-family: ui-monospace, monospace; font-weight:600;">987654323</td>
+                <td>Carlos Díaz</td>
+                <td>CC-001</td>
+                <td>S/ 69.90</td>
+                <td><span class="badge-status-ok">OK</span></td>
+              </tr>
+              <tr>
+                <td style="font-family: ui-monospace, monospace; font-weight:600;">987654324</td>
+                <td>Ana Torres</td>
+                <td>CC-003</td>
+                <td>S/ 85.00</td>
+                <td><span class="badge-status-ok">OK</span></td>
+              </tr>
+              <tr>
+                <td style="font-family: ui-monospace, monospace; font-weight:600;">987654325</td>
+                <td>Luis Ramírez</td>
+                <td>CC-002</td>
+                <td>S/ 59.90</td>
+                <td><span class="badge-status-ok">OK</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN DESPLEGABLE COMPLETA (VER TODOS / RESULTADOS COMPLETOS) -->
+    <div class="table-widget-card d-none" id="full-detail-section" style="margin-top: 1rem;">
+      <div class="table-widget-header">
+        <div class="table-widget-title">
+          <span>Detalle Completo de Facturación - <span id="label-full-company">PRODAC</span></span>
+        </div>
+        <button type="button" class="btn-white-action" id="btn-close-full-view" style="padding: 0.35rem 0.85rem; font-size: 0.78rem;">
+          Cerrar vista extendida
+        </button>
+      </div>
+      <div style="margin-bottom: 0.85rem;">
+        <input type="text" id="filter-search-input" placeholder="Buscar en todas las líneas por número, usuario o CC..." style="width: 100%; padding: 0.5rem 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.84rem;">
+      </div>
+      <div style="max-height: 400px; overflow-y: auto;">
+        <table class="clean-corp-table">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Línea</th>
+              <th>Usuario</th>
+              <th>Centro de costo</th>
+              <th>Descripción</th>
+              <th>Cargo del mes</th>
+              <th>Observación</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-full-detail-list"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Controlador interactivo -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
