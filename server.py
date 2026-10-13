@@ -11,7 +11,7 @@ import traceback
 
 import movistar_engine
 
-PORT = 8080
+PORT = int(os.environ.get("PORT", 8080))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.path.join(DIRECTORY, "data")
 
@@ -208,8 +208,11 @@ import re  # necesario para periodo_slug en do_POST
 if __name__ == "__main__":
     os.chdir(DIRECTORY)
     os.makedirs(DATA_DIR, exist_ok=True)
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), MovistarHTTPHandler) as httpd:
+    class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+        daemon_threads = True
+        allow_reuse_address = True
+
+    with ThreadedServer(("", PORT), MovistarHTTPHandler) as httpd:
         print("=" * 55)
         print(f" Servidor Movistar iniciado en: http://localhost:{PORT}")
         print(f" Directorio: {DIRECTORY}")

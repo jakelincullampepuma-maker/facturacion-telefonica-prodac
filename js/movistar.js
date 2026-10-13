@@ -6,7 +6,14 @@
  */
 document.addEventListener('DOMContentLoaded', () => {
 
-  const API_BASE = (window.location.protocol === 'file:' || !window.location.port) ? 'http://localhost:8080' : '';
+  // Determinar la URL del servidor backend
+  let API_BASE = '';
+  if (window.location.protocol === 'file:') {
+    API_BASE = 'http://localhost:8080';
+  } else if (window.location.hostname.endsWith('github.io')) {
+    // Si corre en GitHub Pages, conecta al backend desplegado en la nube
+    API_BASE = localStorage.getItem('PRODAC_API_URL') || 'https://facturacion-telefonica-prodac.onrender.com';
+  }
 
   const state = {
     factFile:      null,
@@ -194,7 +201,11 @@ document.addEventListener('DOMContentLoaded', () => {
       secResults.scrollIntoView({behavior:'smooth',block:'start'});
     } catch(err) {
       if (inputPwd) inputPwd.value = '';
-      showAlert(`Error de conexión con el servidor. Verifique que el servidor esté iniciado ejecutando <strong>iniciar_servidor.bat</strong> o abra <a href="http://localhost:8080/movistar.html" style="color:inherit;font-weight:700;text-decoration:underline;">http://localhost:8080/movistar.html</a>.`);
+      if (window.location.hostname.endsWith('github.io')) {
+        showAlert(`No se pudo conectar con el servidor de procesamiento. Para usar la aplicación en línea, despliegue el backend en Render o abra la versión local con <strong>iniciar_servidor.bat</strong> en <a href="http://localhost:8080/movistar.html" style="color:inherit;font-weight:700;text-decoration:underline;">http://localhost:8080/movistar.html</a>.`);
+      } else {
+        showAlert(`Error de conexión con el servidor. Verifique que el servidor esté iniciado ejecutando <strong>iniciar_servidor.bat</strong> o abra <a href="http://localhost:8080/movistar.html" style="color:inherit;font-weight:700;text-decoration:underline;">http://localhost:8080/movistar.html</a>.`);
+      }
     } finally {
       btnProcess.disabled = false;
       btnProcess.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Procesar archivos</span>`;
