@@ -190,6 +190,33 @@ body {
   line-height: 1.3;
 }
 
+/* Entel y Movistar comparten las medidas del menú. El scroll sólo aparece
+   cuando hace falta: no se ocultan opciones ni se cambia el scroll principal. */
+.sidebar--operator {
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+}
+
+.sidebar--operator > .sidebar-header,
+.sidebar--operator > .sidebar-nav,
+.sidebar--operator > .sidebar-footer {
+  flex-shrink: 0;
+}
+
+@media (max-height: 720px) {
+  .sidebar--operator .sidebar-header {
+    padding: 1rem 1.25rem 0.75rem;
+  }
+
+  .sidebar--operator .sidebar-section-title {
+    padding-top: 0.75rem;
+  }
+
+  .sidebar--operator .sidebar-footer {
+    padding: 1rem 1.25rem;
+  }
+}
+
 /* ==========================================
    ÁREA PRINCIPAL
    ========================================== */

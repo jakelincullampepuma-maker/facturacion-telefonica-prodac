@@ -12,21 +12,14 @@
   <link rel="stylesheet" href="css/components.css">
   <style>
     /* Estilos de acento para la operadora Entel */
-    .op-badge-entel {
-      background: #EA580C;
-      color: #FFFFFF;
-      font-size: 0.72rem;
-      padding: 0.15rem 0.5rem;
-      border-radius: 999px;
-      font-weight: 600;
-    }
     .entel-accent-text {
       color: #EA580C;
       font-weight: 800;
     }
     .operator-item.entel.active {
       background: rgba(234, 88, 12, 0.15);
-      border-color: #EA580C;
+      color: #FFFFFF;
+      border: 1px solid rgba(234, 88, 12, 0.35);
     }
     .entel-upload-grid {
       display: grid;
@@ -71,7 +64,7 @@
   <!-- ==========================================
        MENÚ LATERAL CORPORATIVO PRODAC
        ========================================== -->
-  <aside class="sidebar">
+  <aside class="sidebar sidebar--operator">
     <div class="sidebar-header">
       <a href="index.html" style="text-decoration:none;">
         <svg class="prodac-logo-svg" viewBox="0 0 135 38" fill="none">
@@ -129,10 +122,10 @@
 
       <a href="entel.html" class="operator-item entel active" style="text-decoration:none;">
         <div class="op-left">
-          <span class="entel-accent-text" style="font-size:0.95rem;">e)</span>
-          <span style="font-weight:700;">Entel</span>
+          <span class="entel-accent-text" style="font-size:0.85rem;">e)</span>
+          <span>Entel</span>
         </div>
-        <span class="op-badge-entel">Habilitado</span>
+        <span class="op-badge-soon" style="background:#EA580C;color:#fff;">Habilitado</span>
       </a>
     </nav>
 
