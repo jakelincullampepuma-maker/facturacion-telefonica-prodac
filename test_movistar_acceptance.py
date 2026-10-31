@@ -16,14 +16,14 @@ import openpyxl
 from decimal import Decimal
 import movistar_engine
 
-PASSWORD_TEST = "381359748"
-FACT_PATH = r"C:\Users\Jakelin.Cullampe\Downloads\movitar\Fact_20254053822_57503614_381359748_05-09-2026_1.xlsx"
-TRAF_PATH = r"C:\Users\Jakelin.Cullampe\Downloads\movitar\Traf_20254053822_57503614_381359748_05-09-2026_1.xlsx"
-CARGOS_PATH = r"C:\Users\Jakelin.Cullampe\Downloads\movitar\Cargos_20254053822_57503614_381359748_05-09-2026_1.xlsx"
-PDF_PATH = r"C:\Users\Jakelin.Cullampe\Downloads\movitar\DIP-FACT-Recibo_Ciclico_2026090005_S1AA-0054018088.pdf"
-INV_PATH = r"C:\Users\Jakelin.Cullampe\Downloads\inventario\Inventario Celulares General.xlsx"
-if not os.path.exists(INV_PATH):
-    INV_PATH = r"data\inventario_movistar.xlsx"
+from pathlib import Path
+
+PASSWORD_TEST = os.environ.get("MOVISTAR_TEST_PASSWORD", "")
+FACT_PATH = os.environ.get("MOVISTAR_FACT_PATH", "")
+TRAF_PATH = os.environ.get("MOVISTAR_TRAF_PATH", "")
+CARGOS_PATH = os.environ.get("MOVISTAR_CARGOS_PATH", "")
+PDF_PATH = os.environ.get("MOVISTAR_PDF_PATH", "")
+INV_PATH = os.environ.get("MOVISTAR_INVENTORY_PATH", "")
 
 class TestMovistarDynamicCode(unittest.TestCase):
     """
@@ -37,7 +37,6 @@ class TestMovistarDynamicCode(unittest.TestCase):
         "1794.99", "1,794.99",
         "11767.15", "11,767.15",
         "31502.60", "31,502.60", "31502.6",
-        "381359748"
     ]
 
     FILES_TO_CHECK = [
@@ -58,6 +57,8 @@ class TestMovistarDynamicCode(unittest.TestCase):
                     f"El valor '{val}' de septiembre está escrito directamente en {fname}."
                 )
 
+@unittest.skipUnless(PASSWORD_TEST and all(Path(p).is_file() for p in [FACT_PATH, TRAF_PATH, CARGOS_PATH, PDF_PATH, INV_PATH]),
+                     "Referencias privadas Movistar no configuradas mediante variables de entorno.")
 class TestMovistarEndToEnd(unittest.TestCase):
     """
     Prueba obligatoria con los archivos reales de septiembre.

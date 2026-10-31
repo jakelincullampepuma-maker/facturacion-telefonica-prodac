@@ -22,3 +22,27 @@ venv/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+.test-tools/
+
+
+# Secretos locales y credenciales
+.env
+.env.*
+*.pem
+*.key
+.aws/
+.codex/
+.agents/
+
+# Documentos y reportes corporativos (sólo archivos locales)
+*.xlsx
+*.xls
+*.xlsm
+*.pdf
+*.csv
+*.zip
+reports/
+reportes/
+inventarios/
+facturas/

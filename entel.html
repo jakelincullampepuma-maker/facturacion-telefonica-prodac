@@ -3,17 +3,68 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Módulo Entel | Facturación Telefónica PRODAC</title>
-  <meta name="description" content="Módulo independiente para facturación y conciliación de Entel Perú - PRODAC">
-
-  <!-- Tipografía Google Fonts: Inter -->
+  <title>Módulo Entel | Conciliación Telefónica PRODAC</title>
+  <meta name="description" content="Conciliación mensual de líneas telefónicas Entel por centro de costo - PRODAC">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <!-- Estilos CSS -->
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/components.css">
+  <style>
+    /* Estilos de acento para la operadora Entel */
+    .op-badge-entel {
+      background: #EA580C;
+      color: #FFFFFF;
+      font-size: 0.72rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .entel-accent-text {
+      color: #EA580C;
+      font-weight: 800;
+    }
+    .operator-item.entel.active {
+      background: rgba(234, 88, 12, 0.15);
+      border-color: #EA580C;
+    }
+    .entel-upload-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 900px) {
+      .entel-upload-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .table-filter-bar {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 0.85rem;
+    }
+    .filter-input-search {
+      flex: 1;
+      min-width: 220px;
+      padding: 0.5rem 0.8rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm, 6px);
+      font-size: 0.85rem;
+      background: var(--bg-card);
+      color: var(--text-main);
+    }
+    .filter-select {
+      padding: 0.5rem 0.8rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm, 6px);
+      font-size: 0.85rem;
+      background: var(--bg-card);
+      color: var(--text-main);
+    }
+  </style>
 </head>
 <body>
 
@@ -22,103 +73,416 @@
        ========================================== -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <a href="claro.html" style="text-decoration: none;">
-        <svg class="prodac-logo-svg" viewBox="0 0 135 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <a href="index.html" style="text-decoration:none;">
+        <svg class="prodac-logo-svg" viewBox="0 0 135 38" fill="none">
           <path d="M19 3L34 11.5V28.5L19 37L4 28.5V11.5L19 3Z" stroke="#00A3E0" stroke-width="3.5" stroke-linejoin="round"/>
           <path d="M19 12L25 15.5V22.5L19 26L13 22.5V15.5L19 12Z" stroke="#00A3E0" stroke-width="2.5" stroke-linejoin="round"/>
           <path d="M13 19V32" stroke="#00A3E0" stroke-width="3.2" stroke-linecap="round"/>
-          <text x="42" y="27" fill="#FFFFFF" font-family="'Inter', system-ui, sans-serif" font-size="22" font-weight="800" letter-spacing="-0.5px">prodac</text>
+          <text x="42" y="27" fill="#FFFFFF" font-family="Inter,system-ui,sans-serif" font-size="22" font-weight="800" letter-spacing="-0.5px">prodac</text>
         </svg>
       </a>
     </div>
 
     <nav class="sidebar-nav">
-      <a href="claro.html" class="nav-item">
+      <button type="button" class="nav-item active" id="nav-dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        <span>Ir a Claro</span>
-      </a>
+        <span>Dashboard</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-upload">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
+        <span>Cargar archivos</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-results">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Resultados</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-resumen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        <span>Resumen por CC</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-obs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Observaciones</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-export">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Descargar reporte</span>
+      </button>
 
-      <!-- Operadoras independientes -->
       <div class="sidebar-section-title">Páginas de Operadoras</div>
 
-      <!-- Enlace a Página Claro -->
-      <a href="claro.html" class="operator-item" style="text-decoration: none;">
+      <a href="claro.html" class="operator-item" style="text-decoration:none;">
         <div class="op-left">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
           <span>Claro</span>
         </div>
-        <span class="op-badge-soon" style="background: rgba(16, 185, 129, 0.2); color: #10B981;">Habilitado</span>
+        <span class="op-badge-soon">Habilitado</span>
       </a>
 
-      <!-- Enlace a Página Movistar -->
-      <a href="movistar.html" class="operator-item" style="text-decoration: none;">
+      <a href="movistar.html" class="operator-item" style="text-decoration:none;">
         <div class="op-left">
-          <span style="font-weight: 800; font-size: 0.95rem; color: #38BDF8;">M</span>
+          <span style="font-weight:800;font-size:0.95rem;color:#38BDF8;">M</span>
           <span>Movistar</span>
         </div>
-        <span class="op-badge-soon">Próximamente</span>
+        <span class="op-badge-soon">Habilitado</span>
       </a>
 
-      <!-- Página Entel (Activa en esta vista) -->
-      <a href="entel.html" class="operator-item claro active" style="text-decoration: none; background: rgba(251, 146, 60, 0.2); border-color: #FB923C;">
+      <a href="entel.html" class="operator-item entel active" style="text-decoration:none;">
         <div class="op-left">
-          <span style="font-weight: 800; font-size: 0.95rem; color: #FB923C;">e)</span>
-          <span style="color: #FFFFFF;">Entel</span>
+          <span class="entel-accent-text" style="font-size:0.95rem;">e)</span>
+          <span style="font-weight:700;">Entel</span>
         </div>
-        <span class="op-badge-soon" style="background: #EA580C; color: #FFFFFF;">En desarrollo</span>
+        <span class="op-badge-entel">Habilitado</span>
       </a>
     </nav>
 
-    <div class="sidebar-footer">
-      Conectando negocios con el mundo
-    </div>
+    <div class="sidebar-footer">Conectando negocios con el mundo</div>
   </aside>
 
   <!-- ==========================================
        ÁREA PRINCIPAL: MÓDULO ENTEL
        ========================================== -->
   <main class="main-wrapper">
+    <!-- Encabezado superior -->
     <div class="top-header-row">
       <div class="header-title-group">
-        <h1 style="display: flex; align-items: center; gap: 0.75rem;">
-          <span style="color: #EA580C; font-weight: 800;">e)</span> Módulo Entel
+        <h1 style="display:flex;align-items:center;gap:0.6rem;">
+          <span class="entel-accent-text">e)</span> Módulo Entel
         </h1>
-        <p>Página independiente con estructura preparada para el algoritmo específico de Entel</p>
+        <p>Conciliación mensual dinámica de facturación Entel vs Inventario Celulares General</p>
       </div>
-
-      <div class="period-badge-btn">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span>Periodo: En configuración</span>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div class="period-badge-btn" id="period-picker-btn">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="period-display-text">Periodo: Pendiente de carga</span>
+        </div>
       </div>
     </div>
 
-    <!-- Banner informativo de separación de código -->
-    <div class="upload-panel-card" style="border-left: 4px solid #EA580C; margin-top: 1rem; padding: 2rem;">
-      <div style="display: flex; align-items: flex-start; gap: 1rem;">
-        <div style="width: 44px; height: 44px; background: rgba(234, 88, 12, 0.12); color: #EA580C; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </div>
-        <div>
-          <h2 style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.4rem;">
-            Módulo Independiente de Entel
-          </h2>
-          <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; max-width: 780px;">
-            Esta página está completamente separada de Claro y Movistar. No comparte lógica ni mezcla formatos de factura, ya que Entel utiliza columnas, estructuras de archivos Excel y desglose de recibos propios.
-          </p>
+    <!-- Contenedor de alertas dinámicas -->
+    <div id="entel-alert-container"></div>
 
-          <div style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <a href="claro.html" class="btn-blue-action" style="text-decoration: none; padding: 0.65rem 1.4rem;">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-              <span>Regresar al Módulo Claro</span>
-            </a>
-            <span style="font-size: 0.82rem; color: var(--text-muted);">
-              Cuando proporciones los archivos de prueba de Entel, se implementará su algoritmo aquí sin afectar a Claro.
-            </span>
+    <!-- ==========================================
+         PANEL DE CARGA DE ARCHIVOS
+         ========================================== -->
+    <section class="upload-panel-card" id="section-carga-archivos">
+      <div class="upload-panel-header">
+        <div class="upload-panel-title">
+          <span class="badge-num-step">1</span>
+          <h2>Carga de archivos &ndash; Entel</h2>
+        </div>
+        <div class="upload-panel-subtitle">
+          Carga los 3 archivos requeridos. El sistema detecta dinámicamente las hojas y columnas de cada mes.
+        </div>
+      </div>
+
+      <!-- Grid 3 tarjetas de carga -->
+      <div class="entel-upload-grid">
+
+        <!-- 01 Excel Entel -->
+        <div class="upload-file-card" id="card-wrap-excel">
+          <div class="card-step-num">01</div>
+          <span class="card-check-corner d-none" id="check-icon-excel">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Excel Facturación Entel</h3>
+          <p class="card-file-format">Excel original del proveedor (.xlsx)</p>
+          <div class="card-drop-box" id="dropzone-excel" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-excel-green">X</span>
+              <span class="card-filename-text" id="name-excel-file" style="color:var(--text-muted);">Arrastra o haz clic aquí</span>
+            </div>
+            <button type="button" class="btn-remove-card-file d-none" id="btn-remove-excel" title="Retirar">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-excel-file" accept=".xlsx,.xls" class="d-none">
+        </div>
+
+        <!-- 02 Inventario Celulares General -->
+        <div class="upload-file-card" id="card-wrap-inventory">
+          <div class="card-step-num">02</div>
+          <span class="card-check-corner d-none" id="check-icon-inventory">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Inventario Celulares General</h3>
+          <p class="card-file-format">Excel con hoja PRODAC / PRODIMIN</p>
+          <div class="card-drop-box" id="dropzone-inventory" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-excel-green">X</span>
+              <span class="card-filename-text" id="name-inventory-file" style="color:var(--text-muted);">Arrastra o haz clic aquí</span>
+            </div>
+            <button type="button" class="btn-remove-card-file d-none" id="btn-remove-inventory" title="Retirar">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-inventory-file" accept=".xlsx,.xls" class="d-none">
+        </div>
+
+        <!-- 03 Recibo PDF Entel -->
+        <div class="upload-file-card" id="card-wrap-pdf">
+          <div class="card-step-num">03</div>
+          <span class="card-check-corner d-none" id="check-icon-pdf">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <h3 class="card-file-heading">Recibo PDF mensual Entel</h3>
+          <p class="card-file-format">Recibo oficial de facturación (.pdf)</p>
+          <div class="card-drop-box" id="dropzone-pdf" tabindex="0">
+            <div class="card-file-preview-left">
+              <span class="icon-file-badge icon-pdf-red">PDF</span>
+              <span class="card-filename-text" id="name-pdf-file" style="color:var(--text-muted);">Arrastra o haz clic aquí</span>
+            </div>
+            <button type="button" class="btn-remove-card-file d-none" id="btn-remove-pdf" title="Retirar">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <input type="file" id="input-pdf-file" accept=".pdf" class="d-none">
+        </div>
+
+      </div><!-- /entel-upload-grid -->
+
+      <!-- Barra de botones de accion -->
+      <div class="upload-buttons-bar">
+        <button type="button" class="btn-blue-action" id="btn-process-files">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>Procesar archivos</span>
+        </button>
+        <button type="button" class="btn-white-action" id="btn-clear-files">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Limpiar</span>
+        </button>
+        <button type="button" class="btn-outline-download" id="btn-export-excel" disabled>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Descargar Excel conciliado</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         SECCIÓN DE RESULTADOS
+         ========================================== -->
+    <div id="section-resultados-entel" class="d-none">
+
+      <!-- Banner conciliacion -->
+      <div class="conciliation-banner-card" id="conciliation-banner">
+        <div class="banner-left-group">
+          <div class="banner-check-circle" id="banner-status-circle">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <h3 class="banner-title-text" id="banner-title-text">La conciliación de planes cuadra</h3>
+            <p class="banner-sub-text" id="banner-sub-text">La suma de los planes coincide con el importe de PLAN del recibo PDF.</p>
           </div>
         </div>
+        <div class="banner-pill-cuadra" id="banner-pill-badge">CONCILIADO</div>
       </div>
-    </div>
+
+      <!-- KPIs - Grid de 8 indicadores -->
+      <div class="movistar-kpis-8-grid">
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Líneas facturadas</span>
+            <span class="kpi-value-bold" id="kpi-val-lineas">0</span>
+            <span class="kpi-subtext-ref" id="kpi-sub-lineas">En detalle de factura</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Líneas conciliadas</span>
+            <span class="kpi-value-bold" id="kpi-val-conciliadas">0</span>
+            <span class="kpi-subtext-ref" id="kpi-sub-conciliadas">Con CC Dpto</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Observaciones</span>
+            <span class="kpi-value-bold" id="kpi-val-observaciones">0</span>
+            <span class="kpi-subtext-ref" id="kpi-sub-observaciones">Discrepancias de CC</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Total Planes (Excel)</span>
+            <span class="kpi-value-bold" id="kpi-val-excel-plan">S/ 0.00</span>
+            <span class="kpi-subtext-ref">Suma cargos fijos</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Concepto PLAN (PDF)</span>
+            <span class="kpi-value-bold" id="kpi-val-pdf-plan">S/ 0.00</span>
+            <span class="kpi-subtext-ref">Importe del recibo</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Equipos (Inafectos)</span>
+            <span class="kpi-value-bold" id="kpi-val-equipos">S/ 0.00</span>
+            <span class="kpi-subtext-ref">Cuotas diferidas</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Total Recibo Factura</span>
+            <span class="kpi-value-bold" id="kpi-val-total-factura">S/ 0.00</span>
+            <span class="kpi-subtext-ref">Total a pagar PDF</span>
+          </div>
+        </div>
+
+        <div class="card-kpi-concil">
+          <div class="kpi-icon-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <div class="kpi-content-box">
+            <span class="kpi-label-small">Diferencia</span>
+            <span class="kpi-value-bold text-green" id="kpi-val-diferencia">S/ 0.00</span>
+            <span class="kpi-subtext-ref" id="kpi-sub-diferencia">Conciliado</span>
+          </div>
+        </div>
+
+      </div><!-- /kpis -->
+
+      <!-- Tabla Detalle de Líneas Conciliadas -->
+      <div class="table-widget-card" style="margin-bottom:1.5rem;">
+        <div class="table-widget-header">
+          <div class="table-widget-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            <span>Detalle de Líneas Conciliadas &ndash; Hoja Resultado Entel</span>
+          </div>
+          <span class="op-badge-soon" id="badge-filtered-count" style="background:var(--bg-subtle,#F1F5F9);color:var(--text-muted);font-weight:600;">0 líneas</span>
+        </div>
+
+        <!-- Barra de filtros y busqueda -->
+        <div class="table-filter-bar">
+          <input type="text" id="input-search-lines" class="filter-input-search" placeholder="Buscar por número, usuario, área, dpto o CC...">
+          <select id="select-filter-status" class="filter-select">
+            <option value="all">Todos los registros</option>
+            <option value="conciliado">Solo Conciliados</option>
+            <option value="observacion">Con Observación / Discrepancia</option>
+            <option value="sin_cc">Sin Centro de Costo</option>
+          </select>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table class="clean-corp-table">
+            <thead>
+              <tr>
+                <th style="text-align:center;">Número</th>
+                <th>Plan Tarifario</th>
+                <th style="text-align:right;">Cargo Fijo con IGV</th>
+                <th style="text-align:center;">Empresa</th>
+                <th>Usuario</th>
+                <th>Área / Departamento</th>
+                <th style="text-align:center;">CC Dpto</th>
+                <th style="text-align:center;">Código PRS / Área</th>
+                <th style="text-align:center;">Estado</th>
+                <th>Observaciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-lineas-entel"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tablas inferiores: Resumen por CC y Observaciones -->
+      <div class="two-columns-bottom-grid">
+
+        <!-- Tabla Resumen por CC Dpto -->
+        <div class="table-widget-card" id="section-resumen-cc">
+          <div class="table-widget-header">
+            <div class="table-widget-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <span>Resumen por Centro de Costo (CC Dpto)</span>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="clean-corp-table">
+              <thead>
+                <tr>
+                  <th style="text-align:center;">Centro de costo</th>
+                  <th style="text-align:right;">Líneas</th>
+                  <th style="text-align:right;">Total Cargo Fijo</th>
+                  <th style="text-align:right;">% del total</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-resumen-cc"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tabla de Observaciones / Discrepancias -->
+        <div class="table-widget-card" id="section-observaciones-entel">
+          <div class="table-widget-header">
+            <div class="table-widget-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>Observaciones y Discrepancias</span>
+            </div>
+            <button type="button" class="btn-white-action d-none" id="btn-download-obs" style="font-size:0.78rem;padding:0.35rem 0.8rem;">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Descargar observaciones (CSV)</span>
+            </button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="clean-corp-table">
+              <thead>
+                <tr>
+                  <th style="text-align:center;">Número</th>
+                  <th>Usuario</th>
+                  <th style="text-align:center;">CC Dpto</th>
+                  <th style="text-align:right;">Cargo Fijo</th>
+                  <th>Detalle de Observación</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-observaciones-entel"></tbody>
+            </table>
+            <div id="empty-obs-msg" class="d-none" style="padding:1.5rem;text-align:center;color:#10B981;font-weight:600;font-size:0.86rem;">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:0.35rem;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Todas las líneas están conciliadas sin discrepancias.
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /two-columns-bottom-grid -->
+
+    </div><!-- /section-resultados-entel -->
+
   </main>
 
+  <!-- Lectura como Claro; JSZip conserva el XLSX original. -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="js/entelWorkbook.js"></script>
+  <script src="js/entelProcessor.js"></script>
+  <script src="js/entel.js"></script>
 </body>
 </html>
