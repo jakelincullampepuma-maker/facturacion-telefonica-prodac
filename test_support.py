@@ -53,7 +53,7 @@ def movistar_fixtures():
     inventory.active.append(["Numero", "CC Dpto", "Usuario"])
     inventory.active.append(["951234567", "CC-A", "Usuario de prueba A"])
     inventory.active.append(["952345678", "CC-B", "Usuario de prueba B"])
-    pdf = simple_pdf("Recibo Septiembre 2026\nSubtotal S/ 35.00\nIGV (18%) S/ 6.30\nTotal Afecto S/ 41.30\nCargos Adicionales Inafectos S/ 12.00\nRedondeo S/ 0.00\nTotal Facturado S/ 53.30\nAnexo 1: 951234567\nDescuento 50% al plan 12 meses S/ - 5.00")
+    pdf = simple_pdf("Movistar\nRecibo Septiembre 2026\nSubtotal S/ 35.00\nIGV (18%) S/ 6.30\nTotal Afecto S/ 41.30\nCargos Adicionales Inafectos S/ 12.00\nRedondeo S/ 0.00\nTotal Facturado S/ 53.30\nAnexo 1: 951234567\nCargos Mensuales: Plan de prueba S/ 10.00\nDescuentos y Bonificaciones Afectos: Descuento 50% al plan 12 meses S/ - 5.00\nAnexo 2: 952345678\nCargos Mensuales: Plan de prueba S/ 30.00\nCargos Adicionales Inafectos: Cuota 1 de 2 financiamiento Equipo (TELEF: 951234567) S/ 12.00")
     return {key: data for key, data in [
         ("fact_file", workbook_bytes(fact)), ("traf_file", workbook_bytes(traf)),
         ("cargos_file", workbook_bytes(cargos)), ("inventory_file", workbook_bytes(inventory)),

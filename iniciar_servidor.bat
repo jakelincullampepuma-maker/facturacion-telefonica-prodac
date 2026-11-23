@@ -8,7 +8,7 @@ echo Verificando dependencias de Python...
 python -c "import msoffcrypto, openpyxl, pypdf" 2>nul
 if %errorlevel% neq 0 (
     echo Instalando dependencias requeridas...
-    pip install msoffcrypto-tool openpyxl pypdf
+    python -m pip install -r requirements.txt
 )
 echo.
 echo Modulos disponibles en el servidor:
@@ -16,7 +16,7 @@ echo   - Entel:    http://localhost:8080/entel.html
 echo   - Movistar: http://localhost:8080/movistar.html
 echo   - Claro:    http://localhost:8080/claro.html
 echo.
-echo Abriendo aplicacion en http://localhost:8080/entel.html ...
-start http://localhost:8080/entel.html
+echo Abriendo aplicacion en http://localhost:8080/movistar.html ...
+start http://localhost:8080/movistar.html
 python server.py
 pause

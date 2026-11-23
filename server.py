@@ -14,6 +14,7 @@ from pathlib import Path
 
 import movistar_engine
 import entel_engine
+import claro_engine
 
 PORT = int(os.environ.get("PORT", 8080))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
@@ -138,7 +139,7 @@ class MovistarHTTPHandler(http.server.SimpleHTTPRequestHandler):
             return
         prune_cache()
 
-        if path == "/api/movistar/download-excel":
+        if path in ("/api/movistar/download-excel", "/api/claro/download-excel"):
             token = query.get("token", [""])[0]
             cached = get_cached_download(token)
             if cached:
@@ -265,38 +266,53 @@ class MovistarHTTPHandler(http.server.SimpleHTTPRequestHandler):
         fields, files   = parse_multipart(body_bytes, content_type)
 
         try:
-            if path == "/api/movistar/process":
-                # --- Validar password ---
-                password = fields.get("password", "").strip()
-                if not password:
-                    self.send_json(400, {"error": "Debe ingresar la contrasena de los archivos del mes."})
+            if path == "/api/claro/process":
+                for key, label in [("pdf_file", "recibo mensual de Claro en PDF"),
+                                   ("inventory_file", "Inventario General en XLSX"),
+                                   ("fact_file", "Excel de Claro con Factura Detallada")]:
+                    if not files.get(key, {}).get("content"):
+                        self.send_json(400, {"error": f"Debe cargar el {label}."})
+                        return
+                result = claro_engine.process_claro_files(
+                    pdf_bytes=files["pdf_file"]["content"],
+                    inventory_bytes=files["inventory_file"]["content"],
+                    fact_bytes=files["fact_file"]["content"],
+                    company=fields.get("company", ""))
+                token = str(uuid.uuid4())
+                with CACHE_LOCK:
+                    EXCEL_CACHE[token] = {"bytes": result.pop("excel_bytes"),
+                                          "filename": result["download_filename"],
+                                          "created": datetime.datetime.now()}
+                prune_cache()
+                result.update(download_token=token, success=True)
+                self.send_json(200, result)
+
+            elif path == "/api/movistar/process":
+                # Validar los dos archivos obligatorios
+                if "pdf_file" not in files or not files["pdf_file"]["content"]:
+                    self.send_json(400, {"error": "Debe cargar el recibo mensual de Movistar en PDF."})
+                    return
+                if "inventory_file" not in files or not files["inventory_file"]["content"]:
+                    self.send_json(400, {"error": "Debe cargar el archivo Inventario Celulares General."})
                     return
 
-                # --- Validar 5 archivos obligatorios ---
-                required = [
-                    ("fact_file",      "Archivo Fact (Fact_*.xlsx)"),
-                    ("traf_file",      "Archivo Traf (Traf_*.xlsx)"),
-                    ("cargos_file",    "Archivo Cargos (Cargos_*.xlsx)"),
-                    ("inventory_file", "Inventario Celulares General"),
-                    ("pdf_file",       "Recibo PDF mensual de Movistar"),
-                ]
-                for key, label in required:
-                    if key not in files or not files[key]["content"]:
-                        self.send_json(400, {"error": f"Falta cargar: {label}."})
-                        return
+                password = fields.get("password", "").strip()
+                fact_bytes = files.get("fact_file", {}).get("content")
+                traf_bytes = files.get("traf_file", {}).get("content")
+                cargos_bytes = files.get("cargos_file", {}).get("content")
 
                 result = movistar_engine.process_movistar_files(
-                    fact_bytes      = files["fact_file"]["content"],
-                    traf_bytes      = files["traf_file"]["content"],
-                    cargos_bytes    = files["cargos_file"]["content"],
                     pdf_bytes       = files["pdf_file"]["content"],
                     inventory_bytes = files["inventory_file"]["content"],
+                    fact_bytes      = fact_bytes,
+                    traf_bytes      = traf_bytes,
+                    cargos_bytes    = cargos_bytes,
                     password        = password,
                 )
 
                 # Guardar Excel en cache
                 token        = str(uuid.uuid4())
-                periodo_slug = re.sub(r'[^a-zA-Z0-9_]', '_', result["periodo"])
+                periodo_slug = re.sub(r'[^a-zA-Z0-9_]', '_', result["periodo"].strip())
                 filename     = f"Movistar_Conciliado_{periodo_slug}.xlsx"
 
                 with CACHE_LOCK:

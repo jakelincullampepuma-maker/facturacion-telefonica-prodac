@@ -19,6 +19,7 @@
     return e;
   }
   async function create(original, result) {
+    await UploadUI.yieldToBrowser();
     let zip;
     try { zip = await JSZip.loadAsync(original, {checkCRC32: true}); }
     catch (e) { throw new Error('El proveedor debe ser un XLSX original sin contraseña: ' + e.message); }
@@ -171,6 +172,7 @@
     zip.file('xl/_rels/workbook.xml.rels', serialize(rels));
     zip.file('[Content_Types].xml', serialize(types));
     zip.file(stylePath, serialize(styles));
+    await UploadUI.yieldToBrowser();
     return zip.generateAsync({type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   }
   window.EntelWorkbook = {create};

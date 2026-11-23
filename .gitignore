@@ -1,5 +1,8 @@
 # Python
 __pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 *.py[cod]
 *$py.class
 *.egg-info/
@@ -9,6 +12,27 @@ build/
 
 # Data files (pueden contener info sensible)
 data/
+results/
+resultados/
+test-results/
+playwright-report/
+artifacts/
+uploads/
+upload/
+user_uploads/
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.log
+*.log.*
+~$*
+node_modules/
+.coverage
+htmlcov/
 
 # Virtual environments
 venv/
@@ -40,9 +64,17 @@ Desktop.ini
 *.xls
 *.xlsm
 *.pdf
+*.[pP][dD][fF]
+*.[xX][lL][sS]
+*.[xX][lL][sS][xX]
+*.[xX][lL][sS][mM]
+*.[xX][lL][sS][bB]
 *.csv
 *.zip
 reports/
 reportes/
 inventarios/
 facturas/
+
+# Diagnóstico local; las pruebas publicables usan test_movistar_acceptance.py.
+/test_engine_nov.py

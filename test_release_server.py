@@ -65,7 +65,7 @@ class TestReleaseServer(unittest.TestCase):
         with urllib.request.urlopen(self.base + "/api/movistar/download-excel?token=" + result["download_token"]) as response:
             wb = openpyxl.load_workbook(io.BytesIO(response.read()))
         self.assertEqual(wb.sheetnames, ["CARGOS ADICIONALES", "CARGO MENSUAL", "Hoja1"])
-        self.assertEqual(wb["CARGO MENSUAL"]["F3"].value, "=D3-E3")
+        self.assertEqual(wb["CARGO MENSUAL"]["F2"].value, "=D2-E2")
 
     def test_expired_downloads_and_upload_limit(self):
         with server.CACHE_LOCK:

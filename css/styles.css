@@ -1,6 +1,6 @@
 /**
  * styles.css - App Celulares PRODAC
- * Estilos para Módulo Claro (PRODAC y PRODIMIN) según conciliador-claro-mensual
+ * Estructura y navegación compartidas: Claro, Movistar y Entel.
  */
 
 :root {
@@ -48,6 +48,7 @@
 
 html {
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -73,12 +74,21 @@ body {
   flex-direction: column;
   z-index: 100;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  /* Misma composición del panel aunque el contenido principal tenga scroll. */
+  transform: translateZ(0);
   border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .sidebar-header {
   padding: 1.5rem 1.25rem 1rem;
 }
+
+.sidebar > .sidebar-header,
+.sidebar > .sidebar-nav,
+.sidebar > .sidebar-footer { flex-shrink: 0; }
+.sidebar-logo { display: block; text-decoration: none; }
 
 .prodac-logo-svg {
   height: 34px;
@@ -103,6 +113,8 @@ body {
   color: var(--sidebar-muted);
   font-size: 0.86rem;
   font-weight: 500;
+  font-family: inherit;
+  line-height: 1.45;
   cursor: pointer;
   transition: all 0.2s ease;
   border: none;
@@ -119,7 +131,6 @@ body {
 .nav-item.active {
   background: var(--prodac-blue);
   color: #FFFFFF;
-  font-weight: 600;
   box-shadow: 0 4px 12px rgba(0, 153, 255, 0.3);
 }
 
@@ -146,17 +157,27 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   width: 100%;
   color: var(--sidebar-muted);
+  text-decoration: none;
+  line-height: 1.45;
 }
 
-.operator-item.claro {
-  background: rgba(0, 153, 255, 0.18);
+.operators-section { display: flex; flex-direction: column; gap: 0.25rem; }
+.operator-link[data-operator="claro"] { --operator-color: #0099FF; --operator-tint: rgba(0, 153, 255, 0.18); }
+.operator-link[data-operator="movistar"] { --operator-color: #38BDF8; --operator-tint: rgba(56, 189, 248, 0.18); }
+.operator-link[data-operator="entel"] { --operator-color: #EA580C; --operator-tint: rgba(234, 88, 12, 0.18); }
+.operator-link.active {
+  background: var(--operator-tint);
   color: #FFFFFF;
-  border: 1px solid rgba(0, 153, 255, 0.35);
+  border-color: var(--operator-color);
 }
+.operator-link:hover:not(.active) { background: var(--sidebar-hover); color: #FFFFFF; }
+.operator-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; color: var(--operator-color); font-weight: 800; font-size: 0.85rem; flex-shrink: 0; }
+.operator-icon svg { width: 18px; height: 18px; }
+.operator-link .op-badge-soon { background: var(--operator-tint); color: var(--operator-color); }
 
 .operator-item.disabled {
   opacity: 0.6;
@@ -190,29 +211,16 @@ body {
   line-height: 1.3;
 }
 
-/* Entel y Movistar comparten las medidas del menú. El scroll sólo aparece
-   cuando hace falta: no se ocultan opciones ni se cambia el scroll principal. */
-.sidebar--operator {
-  overflow-x: hidden;
-  overscroll-behavior-y: contain;
-}
-
-.sidebar--operator > .sidebar-header,
-.sidebar--operator > .sidebar-nav,
-.sidebar--operator > .sidebar-footer {
-  flex-shrink: 0;
-}
-
 @media (max-height: 720px) {
-  .sidebar--operator .sidebar-header {
+  .sidebar .sidebar-header {
     padding: 1rem 1.25rem 0.75rem;
   }
 
-  .sidebar--operator .sidebar-section-title {
+  .sidebar .sidebar-section-title {
     padding-top: 0.75rem;
   }
 
-  .sidebar--operator .sidebar-footer {
+  .sidebar .sidebar-footer {
     padding: 1rem 1.25rem;
   }
 }

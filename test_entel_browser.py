@@ -14,6 +14,7 @@ import threading
 import unittest
 import zipfile
 import openpyxl
+import server
 
 ROOT = Path(__file__).resolve().parent
 if (ROOT / ".test-tools").exists():
@@ -77,7 +78,7 @@ class BrowserTests(unittest.TestCase):
         page = self.context.new_page()
         page.set_default_timeout(60000)
         page.goto((ROOT / "entel.html").as_uri() if local else self.base + "/entel.html")
-        page.wait_for_function("window.EntelProcessor && window.EntelWorkbook && window.XLSX && window.pdfjsLib && window.JSZip")
+        page.wait_for_function("window.EntelProcessor && window.EntelWorkbook && window.UploadUI")
         # Mantiene el resultado observable sólo dentro del navegador de prueba.
         page.evaluate("""() => {
           const run = EntelProcessor.process;
@@ -97,7 +98,8 @@ class BrowserTests(unittest.TestCase):
         page.locator("#btn-process-files").click()
         page.wait_for_function("(before) => (window.testCompleted || 0) > before", arg=completed)
         page.wait_for_function("!document.getElementById('btn-process-files').disabled")
-        return page.locator("#entel-alert-container").inner_text()
+        error = page.locator("#entel-alert-container").inner_text()
+        return error or page.locator('#banner-sub-text').inner_text()
 
     def assert_originals(self, output, original):
         wb = openpyxl.load_workbook(output)
@@ -290,8 +292,13 @@ class BrowserTests(unittest.TestCase):
         self.assertTrue(page.locator("#btn-export-excel").is_disabled())
         page.close()
 
-    def test_03_claro_unchanged_synthetic_flow(self):
+    def test_03_claro_pdf_synthetic_flow(self):
         # No hay archivos reales de Claro en el repositorio: prueba controlada.
+        claro_httpd = server.ThreadedServer(("127.0.0.1", 0), server.AppCelularesHTTPHandler)
+        threading.Thread(target=claro_httpd.serve_forever, daemon=True).start()
+        self.addCleanup(claro_httpd.server_close)
+        self.addCleanup(claro_httpd.shutdown)
+        claro_base = f'http://127.0.0.1:{claro_httpd.server_address[1]}'
         wb = openpyxl.Workbook()
         wb.active.title = "Factura Detallada"
         wb.active.append(["Línea", "Total Cargos por Línea (Sin IGV)"])
@@ -299,15 +306,16 @@ class BrowserTests(unittest.TestCase):
         x, i, p = OUT / "claro-control.xlsx", OUT / "claro-inventory.xlsx", OUT / "claro-control.pdf"
         wb.save(x)
         inv = openpyxl.Workbook(); inv.active.title = "PRODAC"
-        inv.active.append(["Numero", "CC Dpto", "Usuario"])
-        inv.active.append(["953456789", "CC-CONTROL", "Usuario prueba"]); inv.save(i)
-        p.write_bytes(simple_pdf("Cargos del Mes S/ 17.50"))
+        inv.active.append(["ID", "Usuario", "Numero", None, None, None, None, "CC Dpto"])
+        inv.active.append([1, "Usuario prueba", "953456789", None, None, None, None, "CC-CONTROL"]); inv.save(i)
+        from test_support import simple_pdf as pdf_document
+        p.write_bytes(pdf_document("Claro PRODAC\nPeriodo: Abril 2028\nCargos del Mes S/ 17.50\n953456789 Plan Control 17.50"))
         page = self.context.new_page()
         page.set_default_timeout(60000)
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.on("dialog", lambda d: d.accept())
-        page.goto(self.base + "/claro.html")
+        page.goto(claro_base + "/claro.html")
         for input_id, path in [("input-claro-file", x), ("input-inv-file", i), ("input-pdf-file", p)]:
             page.locator("#" + input_id).set_input_files(str(path))
         page.locator("#btn-process-files").click()
@@ -318,10 +326,11 @@ class BrowserTests(unittest.TestCase):
             page.locator("#btn-export-excel").click()
         out = OUT / "Claro-control-result.xlsx"; d.value.save_as(out)
         result = openpyxl.load_workbook(out)
-        self.assertEqual(result.sheetnames, ["Detalle", "Resumen CC", "Conciliación"])
-        self.assertEqual(result["Conciliación"]["B7"].value, 0)
+        self.assertEqual(result.sheetnames, ["Factura Detallada", "Hoja2", "Hoja1"])
+        self.assertEqual(len(result['Hoja1']._pivots), 1)
+        self.assertEqual(result['Hoja1']['H9'].value, 17.5)
         page.locator('a[href="entel.html"]').click()
-        page.wait_for_function("window.EntelProcessor && window.JSZip")
+        page.wait_for_function("window.EntelProcessor && window.UploadUI")
         self.assertIn("Módulo Entel", page.title())
         self.assertEqual(errors, [])
         page.close()

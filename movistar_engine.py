@@ -1,683 +1,442 @@
-"""
-movistar_engine.py
-Motor independiente para la conciliacion mensual de Movistar - PRODAC.
-Extrae descuentos del PDF (sin lista maestra separada).
-Version 2.0 - Procesamiento dinamico completo.
-"""
-
+"""Conciliación Movistar independiente: PDF oficial, inventario y Excel opcionales."""
 import io
 import re
-import os
-import json
-import uuid
-import datetime
-from decimal import Decimal, ROUND_HALF_UP
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
-from openpyxl.utils import get_column_letter
+import unicodedata
+from collections import Counter, defaultdict
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
 import msoffcrypto
+import openpyxl
 import pypdf
 
+from movistar_workbook import generate_movistar_excel
+from processing_diagnostics import PhaseTimings
 
-# ---------------------------------------------------------------------------
-# Utilidades
-# ---------------------------------------------------------------------------
-
-def clean_phone(val):
-    """Normaliza un numero telefonico: extrae los ultimos 9 digitos."""
-    if val is None:
-        return ""
-    digits = re.sub(r'\D', '', str(val).strip())
-    if len(digits) >= 9:
-        return digits[-9:]
-    return digits
+ZERO = Decimal('0.00')
+TOLERANCE = Decimal('0.01')
+AMOUNT = r'[+−-]?\s*\d[\d,]*\.\d{2}'
+CURRENCY = r'S\s*/\.?\s*'
+END_AMOUNT = re.compile(rf'(?:{CURRENCY})?({AMOUNT})\s*$', re.I)
 
 
-def to_decimal(val):
-    """Convierte un valor a Decimal de forma segura."""
+def normalize(value):
+    return ' '.join(''.join(c for c in unicodedata.normalize('NFD', str(value or ''))
+                           if not unicodedata.combining(c)).lower().split())
+
+
+def clean_phone(value):
+    if value is None:
+        return ''
+    if isinstance(value, (float, Decimal)) and value == int(value):
+        value = int(value)
+    return re.sub(r'\D', '', str(value))[-9:]
+
+
+def to_decimal(value):
+    if value is None or value == '':
+        raise ValueError('No se puede interpretar un monto vacío en los archivos de Movistar.')
+    clean = re.sub(r'S\s*/\.?|\$|\s', '', str(value), flags=re.I).replace(',', '').replace('−', '-')
     try:
-        return Decimal(str(val or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    except Exception:
-        return Decimal('0.00')
+        result = Decimal(clean)
+        if not result.is_finite():
+            raise InvalidOperation
+        return result.quantize(TOLERANCE, rounding=ROUND_HALF_UP)
+    except (InvalidOperation, ValueError):
+        raise ValueError('No se puede interpretar un monto en los archivos de Movistar.') from None
 
 
-# ---------------------------------------------------------------------------
-# Descifrado de Excel protegido
-# ---------------------------------------------------------------------------
-
-def decrypt_excel(file_bytes, password):
-    """
-    Descifra un archivo Excel protegido en memoria.
-    Lanza ValueError con mensaje claro si la password es incorrecta.
-    """
-    if not password or not str(password).strip():
-        raise ValueError("Debe ingresar la contrasena de los archivos del mes.")
-
+def decrypt_excel(file_bytes, password=''):
+    """Los documentos descifrados y la contraseña sólo viven en memoria."""
     try:
         office = msoffcrypto.OfficeFile(io.BytesIO(file_bytes))
-        office.load_key(password=str(password).strip())
-        dec = io.BytesIO()
-        office.decrypt(dec)
-        dec.seek(0)
-        return dec
-    except Exception as e:
-        msg = str(e).lower()
-        # Intentar si el archivo ya no esta cifrado
-        try:
-            openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+        if not office.is_encrypted():
             return io.BytesIO(file_bytes)
-        except Exception:
-            raise ValueError(
-                "La contrasena ingresada no permite abrir los archivos de Movistar."
-            )
+        if not password:
+            raise ValueError('Ingrese la contraseña mensual para validar los Excel protegidos.')
+        office.load_key(password=password)
+        stream = io.BytesIO()
+        office.decrypt(stream)
+        stream.seek(0)
+        return stream
+    except ValueError:
+        raise
+    except Exception:
+        raise ValueError('No se pudo abrir el Excel opcional. Revise el archivo y su contraseña mensual.') from None
 
 
-# ---------------------------------------------------------------------------
-# Extraccion del PDF
-# ---------------------------------------------------------------------------
+def _is_page_header(line):
+    text = normalize(line)
+    return (not text or text in ('empresas movil', 'importe s/', 'importe s/.')
+            or text.startswith(('integratel peru', 'telefonica del peru'))
+            or bool(re.fullmatch(r'pagina\s+\d+\s*/\s*\d+', text)))
+
+
+def _discount_kind(description):
+    text = normalize(description)
+    duration = re.search(r'(?<!\d)(12|3|18)\s*m(?:eses|es)?\b', text)
+    if duration and duration[1] == '12':
+        return 'perm' if re.search(r'\bperm\w*\b', text) else '12m'
+    if duration and duration[1] == '3':
+        return '3m'
+    return '18m' if duration and duration[1] == '18' else 'incorporado'
+
 
 def extract_pdf_data(pdf_bytes):
-    """
-    Extrae del recibo PDF de Movistar:
-    - Periodo de facturacion
-    - Totales del resumen (subtotal, IGV, equipos, redondeo, total)
-    - Descuentos de 12 meses por numero de anexo
-    """
-    reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-    if not reader.pages:
-        raise ValueError("El PDF del recibo esta vacio.")
+    try:
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        raw = '\n'.join(page.extract_text() or '' for page in reader.pages)
+    except Exception:
+        raise ValueError('No se pudo leer el PDF. Cargue un recibo Movistar válido con texto seleccionable.') from None
+    if not raw.strip():
+        raise ValueError('El PDF está vacío o no tiene texto seleccionable.')
+    if not any(word in normalize(raw) for word in ('movistar', 'integratel')):
+        raise ValueError('El PDF no corresponde a un recibo de Movistar.')
 
-    # ---------- Texto completo ----------
-    all_text = "\n".join(
-        (page.extract_text() or "") for page in reader.pages
-    )
+    # Unir páginas antes de reconocer Anexos, sin posiciones ni cantidades fijas.
+    text = '\n'.join(line.strip() for line in raw.splitlines() if not _is_page_header(line))
+    headers = list(re.finditer(r'^Anexo\s+(\d+)\s*:\s*([^\n]*)', text, re.I | re.M))
+    if not headers:
+        raise ValueError('No se encontraron Anexos de líneas telefónicas en el PDF.')
+    summary = text[:headers[0].start()]
+    summary_normal = '\n'.join(normalize(line) for line in summary.splitlines())
 
-    # ---------- Periodo ----------
-    periodo = "Periodo no detectado"
-    pm = re.search(
-        r'Ciclo de facturaci[oó]n\s*[-\u2013]\s*([A-Za-záéíóúÁÉÍÓÚñÑ]+\s+\d{4})',
-        all_text, re.IGNORECASE
-    )
-    if not pm:
-        pm = re.search(r'Recibo\s+([A-Za-záéíóúÁÉÍÓÚñÑ]+\s+\d{4})', all_text, re.IGNORECASE)
-    if not pm:
-        pm = re.search(r'Recibo\s+([A-Za-záéíóúÁÉÍÓÚñÑ]+)', all_text, re.IGNORECASE)
-    if pm:
-        periodo = pm.group(1).strip()
-
-    def find_amount(pattern):
-        m = re.search(pattern, all_text, re.IGNORECASE)
-        if m:
-            return to_decimal(m.group(1).replace(',', ''))
+    def amount(label, required=False, display_label=None):
+        match = re.search(rf'^{label}\s*:?\s*{CURRENCY}({AMOUNT})\s*$', summary_normal, re.I | re.M)
+        if match:
+            return to_decimal(match[1])
+        if required:
+            raise ValueError(f'No se pudo identificar el importe de {display_label or label} en el resumen del PDF.')
         return None
 
-    subtotal     = find_amount(r'Subtotal\s+S/?[/ ]*([0-9,]+\.[0-9]{2})')
-    igv          = find_amount(r'IGV\s*\(\s*18%\s*\)\s+S/?[/ ]*([0-9,]+\.[0-9]{2})')
-    total_afecto = find_amount(r'Total Afecto\s+S/?[/ ]*([0-9,]+\.[0-9]{2})')
-    equipos_pdf  = find_amount(r'Cargos Adicionales Inafectos\s+S/?[/ ]*([0-9,]+\.[0-9]{2})')
-    redondeo     = find_amount(r'Redondeo\s+S/?[/ ]*(-?[0-9,]+\.[0-9]{2})')
-    total_fact   = find_amount(r'Total Facturado\s+S/?[/ ]*([0-9,]+\.[0-9]{2})')
-    total_pagar  = find_amount(r'Total a pagar\s+S/?[/ ]*([0-9,]+\.[0-9]{2})')
+    period = re.search(r'ciclo de facturacion\s*[-–:]\s*([a-z]+\s+\d{4})', normalize(summary))
+    if not period:
+        period = re.search(r'(?:recibo|periodo(?: de facturacion)?)\s*:?\s*([a-z]+\s+\d{4})', normalize(summary))
+    if not period:
+        raise ValueError('No se pudo identificar el mes y año del recibo Movistar.')
+    receipt = re.search(r'n[°ºo]?\s*recibo\s*:\s*([\w-]+)', summary, re.I)
+    if not receipt:
+        receipt = re.search(r'resumen de recibo\s*-\s*n[°ºo]?\s*([\w-]+)', summary, re.I)
+    subtotal = amount(r'subtotal(?: sin igv)?', True, 'Subtotal sin IGV')
+    igv = amount(r'igv(?:\s*\(\s*18\s*%\s*\))?', True, 'IGV')
+    total_afecto = amount('total afecto', True)
+    inafectos_pdf = amount('cargos adicionales inafectos', True)
+    total_facturado = amount('total facturado')
+    total_pagar = amount(r'total a pagar(?: del mes)?')
+    if total_facturado is None and total_pagar is None:
+        raise ValueError('No se pudo extraer el Total facturado o Total a pagar del PDF.')
+    redondeo = amount('redondeo')
+    if redondeo is None:
+        components = {}
+        for match in re.finditer(rf'redondeo del mes (actual|anterior)\s*{CURRENCY}({AMOUNT})', normalize(text), re.I):
+            components[match[1]] = to_decimal(match[2])
+        if not components:
+            raise ValueError('No se pudo identificar el redondeo neto del recibo PDF.')
+        redondeo = sum(components.values(), ZERO)
 
-    pdf_total = total_fact if total_fact is not None else total_pagar
-    if pdf_total is None:
-        raise ValueError(
-            "No se pudo extraer el Total del recibo PDF. "
-            "Verifique que sea un recibo Movistar original."
-        )
-
-    # ---------- Descuentos de 12 meses por Anexo ----------
-    # Partir el texto completo en bloques por "Anexo N: PHONE"
-    disc_map = {}   # phone -> Decimal monto_descuento
-    disc_count_12m = 0
-
-    parts = re.split(r'(?=Anexo\s+\d+\s*:\s*\d+)', all_text)
-
-    DISC_12M_PATTERN = re.compile(
-        r'(?:Dscto[^\n]*?50%[^\n]*?12\s*m(?:eses)?|'
-        r'Descuento[^\n]*?50%[^\n]*?12\s*m(?:eses)?)',
-        re.IGNORECASE
-    )
-    # Exclusion: 18 meses
-    DISC_18M_PATTERN = re.compile(r'18\s*m(?:eses)?', re.IGNORECASE)
-
-    for part in parts:
-        anx_m = re.match(r'Anexo\s+(\d+)\s*:\s*(\d+)', part)
-        if not anx_m:
-            continue
-        phone = clean_phone(anx_m.group(2))
-        if not phone:
-            continue
-
-        # Buscar cada linea de descuento de 12m en este bloque
-        phone_disc = Decimal('0.00')
-        for line in part.split('\n'):
-            if DISC_12M_PATTERN.search(line) and not DISC_18M_PATTERN.search(line):
-                # Extraer importe negativo en la misma linea o siguiente
-                amt_m = re.search(r'S/\s*-\s*([\d,]+\.?\d*)', line)
-                if amt_m:
-                    phone_disc += to_decimal(amt_m.group(1).replace(',', ''))
-
-        if phone_disc > Decimal('0.00'):
-            # Si el mismo telefono aparece en varios Anexos, acumular
-            disc_map[phone] = disc_map.get(phone, Decimal('0.00')) + phone_disc
-            disc_count_12m += 1
-
-    return {
-        'periodo': periodo,
-        'subtotal': subtotal,
-        'igv': igv,
-        'total_afecto': total_afecto,
-        'equipos_pdf': equipos_pdf or Decimal('0.00'),
-        'redondeo': redondeo if redondeo is not None else Decimal('0.00'),
-        'pdf_total': pdf_total,
-        'disc_map': disc_map,          # {phone: Decimal}
-        'disc_count_12m': disc_count_12m,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Carga del inventario
-# ---------------------------------------------------------------------------
-
-def load_inventory(inv_bytes):
-    """
-    Carga el Inventario Celulares General desde bytes.
-    Busca la hoja PRODAC y mapea Numero -> CC Dpto.
-    """
-    try:
-        wb = openpyxl.load_workbook(io.BytesIO(inv_bytes), data_only=True)
-    except Exception as e:
-        raise ValueError(f"No se pudo leer el Inventario Celulares General: {e}")
-
-    sheet_name = 'PRODAC' if 'PRODAC' in wb.sheetnames else wb.sheetnames[0]
-    ws = wb[sheet_name]
-
-    # Detectar columnas de numero y CC Dpto
-    col_num = 3   # default C
-    col_cc  = 8   # default H
-    for c in range(1, min(25, ws.max_column + 1)):
-        h = str(ws.cell(1, c).value or '').strip().upper()
-        if h in ('NUMERO', 'NÚMERO', 'N\xdaMERO'):
-            col_num = c
-        elif 'CC DPTO' in h or 'CC_DPTO' in h or 'CENTRO DE COSTO' in h:
-            col_cc = c
-
-    inv_map = {}
-    for r in range(2, ws.max_row + 1):
-        phone = clean_phone(ws.cell(r, col_num).value)
-        cc    = str(ws.cell(r, col_cc).value or '').strip()
-        if phone:
-            inv_map[phone] = cc
-
-    if not inv_map:
-        raise ValueError(
-            "No se encontraron lineas en el Inventario Celulares General. "
-            "Verifique que la hoja PRODAC tenga datos."
-        )
-    return inv_map
-
-
-# ---------------------------------------------------------------------------
-# Motor principal
-# ---------------------------------------------------------------------------
-
-def process_movistar_files(
-    fact_bytes, traf_bytes, cargos_bytes, pdf_bytes,
-    inventory_bytes, password
-):
-    """
-    Flujo principal de conciliacion mensual Movistar.
-    Recibe todos los archivos como bytes.
-    Retorna dict con resultados y excel_bytes.
-    """
-
-    # 1. Descifrar los tres Excel protegidos
-    fact_dec   = decrypt_excel(fact_bytes,   password)
-    traf_dec   = decrypt_excel(traf_bytes,   password)
-    cargos_dec = decrypt_excel(cargos_bytes, password)
-
-    fact_wb   = openpyxl.load_workbook(fact_dec,   data_only=True)
-    traf_wb   = openpyxl.load_workbook(traf_dec,   data_only=True)
-    cargos_wb = openpyxl.load_workbook(cargos_dec, data_only=True)
-
-    fact_ws   = fact_wb.active
-    traf_ws   = traf_wb.active
-    cargos_ws = cargos_wb.active
-
-    # 2. Extraer datos del PDF (periodo + totales + descuentos)
-    pdf_info = extract_pdf_data(pdf_bytes)
-
-    # 3. Cargar inventario
-    inv_map = load_inventory(inventory_bytes)
-
-    # 4. Procesar Fact: detectar fila de encabezado y extraer lineas
-    #    Buscar la fila donde la col B sea "TELEFONO" o donde empiecen los datos
-    data_start_row = 12  # valor por defecto
-    for r in range(1, 20):
-        b_val = str(fact_ws.cell(r, 2).value or '').upper().strip()
-        if 'TELEFONO' in b_val:
-            data_start_row = r + 4  # saltar filas de sub-encabezados
-            break
-        # Tambien aceptar cuando la columna B tiene un numero de 9 digitos
-        phone_test = clean_phone(fact_ws.cell(r, 2).value)
-        if phone_test and len(phone_test) >= 8:
-            data_start_row = r
-            break
-
-    fact_lines = []
-    seen_phones = set()
-    dup_phones  = []
-
-    for r in range(data_start_row, fact_ws.max_row + 1):
-        phone_raw = fact_ws.cell(r, 2).value
-        phone = clean_phone(phone_raw)
-        if not phone or len(phone) < 8:
-            continue
-        # Descartar si es el mismo numero de cuenta financiera (sin empezar con 9)
-        if not phone.startswith('9') and not phone.startswith('94') and not phone.startswith('93') and not phone.startswith('96') and not phone.startswith('97') and not phone.startswith('98'):
-            # Puede ser un numero valido que no empieza con 9 (ej. 940xxx)
-            # Solo descartar si coincide con ID de cuenta de factura
-            account_cell = str(fact_ws.cell(3, 3).value or '')
-            if clean_phone(account_cell) == phone and len(account_cell) > 5:
+    breakdown = {f'{prefix}_{kind}': (0 if prefix == 'count' else ZERO)
+                 for kind in ('12m', '3m', 'perm', '18m') for prefix in ('count', 'monto')}
+    parsed, duplicates, seen = [], [], set()
+    section_re = re.compile(r'^(Cargos Mensuales|Descuentos y Bonificaciones Afectos|Cargos Adicionales Afectos)\s*:\s*(.*)', re.I)
+    stop_re = re.compile(r'^(?:detalle\b|redondeo\b|cargos adicionales inafectos\b|descuentos y bonificaciones inafectos\b)', re.I)
+    for i, header in enumerate(headers):
+        phone = clean_phone(header[2])
+        if len(phone) != 9:
+            raise ValueError(f'No se puede identificar el teléfono del Anexo {header[1]}.')
+        if phone in seen:
+            duplicates.append(phone)
+        seen.add(phone)
+        body = text[header.end():headers[i + 1].start() if i + 1 < len(headers) else len(text)]
+        concepts, section, pending = [], None, ''
+        for line in body.splitlines():
+            if _is_page_header(line):
                 continue
+            if stop_re.match(normalize(line)):
+                if pending:
+                    raise ValueError(f'No se puede interpretar un monto del Anexo {header[1]}.')
+                section = None
+                continue
+            heading = section_re.match(line)
+            if heading:
+                if pending:
+                    raise ValueError(f'No se puede interpretar un monto del Anexo {header[1]}.')
+                section = normalize(heading[1])
+                line = heading[2].strip()
+            if section is None or not line.strip():
+                continue
+            pending = f'{pending} {line}'.strip()
+            match = END_AMOUNT.search(pending)
+            if not match:
+                continue
+            concept = pending[:match.start()].strip()
+            if not concept:
+                raise ValueError(f'Falta la descripción de un cargo del Anexo {header[1]}.')
+            concepts.append((section, concept, to_decimal(match[1])))
+            pending = ''
+        if pending:
+            raise ValueError(f'No se puede interpretar un monto del Anexo {header[1]}.')
+        monthly = [(c, value) for s, c, value in concepts if s == 'cargos mensuales']
+        if not monthly:
+            raise ValueError(f'No se encontraron cargos mensuales del Anexo {header[1]}.')
+        cargos = sum((v for _, v in monthly), ZERO)
+        additional = sum((v for s, _, v in concepts if s == 'cargos adicionales afectos'), ZERO)
+        desc, incorporated = ZERO, ZERO
+        for section, concept, value in concepts:
+            if section != 'descuentos y bonificaciones afectos':
+                continue
+            kind, value = _discount_kind(concept), abs(value)
+            if kind in ('12m', '3m', 'perm'):
+                desc += value
+            else:
+                incorporated += value
+            if kind != 'incorporado':
+                breakdown[f'count_{kind}'] += 1
+                breakdown[f'monto_{kind}'] += value
+        monto = cargos + additional - incorporated
+        parsed.append({'anx': int(header[1]), 'phone': phone, 'plan': monthly[0][0],
+                       'monto': monto, 'desc': desc, 'monto_f': monto - desc,
+                       'cargos_mensuales': cargos, 'cargos_adic': additional,
+                       'desc_18m': incorporated})
 
-        if phone in seen_phones:
-            dup_phones.append(phone)
-        seen_phones.add(phone)
-
-        t_val  = to_decimal(fact_ws.cell(r, 20).value)
-        ac_val = to_decimal(fact_ws.cell(r, 29).value)
-        monto  = t_val + ac_val
-
-        fact_lines.append({
-            'phone': phone,
-            'monto': monto,
-        })
-
-    if not fact_lines:
-        raise ValueError(
-            "No se encontraron lineas telefonicas validas en el archivo Fact. "
-            "Verifique que sea el archivo correcto de Movistar."
-        )
-
-    # 5. Procesar Traf: telefono -> plan
-    traf_map = {}
-    for r in range(1, traf_ws.max_row + 1):
-        p = clean_phone(traf_ws.cell(r, 2).value)
-        plan = str(traf_ws.cell(r, 5).value or '').strip()
-        if p and plan and plan.upper() not in ('PLAN', 'PLANES', 'E', ''):
-            traf_map[p] = plan
-
-    # 6. Procesar Cargos: extraer cuotas de equipos
-    equipment_rows = []
-    for r in range(1, cargos_ws.max_row + 1):
-        for c in range(1, min(cargos_ws.max_column + 1, 10)):
-            desc = str(cargos_ws.cell(r, c).value or '').strip()
-            if 'TELEF:' in desc.upper() and ('CUOTA' in desc.upper() or 'FINANCIAMIENTO' in desc.upper() or 'EQUIPO' in desc.upper()):
-                # Extraer numero de telefono
-                tel_m = re.search(r'TELEF:\s*(\d+)', desc, re.IGNORECASE)
-                if not tel_m:
-                    continue
-                phone = clean_phone(tel_m.group(1))
-                # Buscar monto en las columnas siguientes
-                monto_eq = Decimal('0.00')
-                for mc in range(c + 1, min(c + 5, cargos_ws.max_column + 1)):
-                    mv = cargos_ws.cell(r, mc).value
-                    if mv is not None:
-                        try:
-                            monto_eq = to_decimal(mv)
-                            break
-                        except Exception:
-                            pass
-                # Si el monto esta en formato S/xxx en la misma celda
-                if monto_eq == Decimal('0.00'):
-                    amt_m = re.search(r'S/\s*([\d,]+\.?\d*)', desc)
-                    if amt_m:
-                        monto_eq = to_decimal(amt_m.group(1).replace(',', ''))
-
-                if monto_eq > Decimal('0.00'):
-                    equipment_rows.append({
-                        'phone': phone,
-                        'desc': desc,
-                        'monto': monto_eq,
-                    })
-                break  # una vez encontrado en esta fila, no buscar mas columnas
-
-    # 7. Cruzar datos y calcular por linea
-    disc_map   = pdf_info['disc_map']
-    processed  = []
-    total_monto  = Decimal('0')
-    total_desc   = Decimal('0')
-    total_monto_f = Decimal('0')
-    sin_cc_lines  = []
-    sin_plan_lines = []
-    cc_warnings   = []
-
-    for line in fact_lines:
-        phone = line['phone']
-        monto = line['monto']
-        plan  = traf_map.get(phone, "")
-
-        if not plan:
-            sin_plan_lines.append(phone)
-
-        # Descuento de 12 meses desde el PDF
-        desc = disc_map.get(phone, Decimal('0.00'))
-
-        monto_f = monto - desc
-
-        # Centro de costo del inventario
-        cc = inv_map.get(phone, "")
-        if not cc:
-            sin_cc_lines.append({
-                'phone': phone,
-                'plan': plan,
-                'monto_f': float(monto_f),
-            })
-        elif len(cc) > 20 or any(kw in cc.lower() for kw in ['incl', 'igv', 'iva']):
-            cc_warnings.append(
-                f"Linea {phone} tiene CC con texto particular: '{cc}'"
-            )
-
-        total_monto   += monto
-        total_desc    += desc
-        total_monto_f += monto_f
-
-        processed.append({
-            'phone':   phone,
-            'plan':    plan,
-            'monto':   monto,
-            'desc':    desc if desc > 0 else None,
-            'monto_f': monto_f,
-            'cc':      cc,
-        })
-
-    # Resumen por CC
-    cc_stats = {}
-    for item in processed:
-        cc_name = item['cc'] or 'Sin CC'
-        if cc_name not in cc_stats:
-            cc_stats[cc_name] = {'count': 0, 'monto': Decimal('0')}
-        cc_stats[cc_name]['count']  += 1
-        cc_stats[cc_name]['monto']  += item['monto_f']
-
-    cc_summary = []
-    for cc_name, st in cc_stats.items():
-        m = st['monto']
-        pct = float(
-            (m / total_monto_f * 100).quantize(Decimal('0.1'))
-        ) if total_monto_f > 0 else 0.0
-        cc_summary.append({
-            'cc': cc_name, 'count': st['count'],
-            'monto': float(m), 'pct': pct,
-        })
-    cc_summary.sort(key=lambda x: x['monto'], reverse=True)
-
-    # 8. Totales generales y validacion contra el PDF
-    total_equipos  = sum(r['monto'] for r in equipment_rows)
-    calc_igv       = (total_monto_f * Decimal('0.18')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    calc_afecto    = total_monto_f + calc_igv
-    pdf_redondeo   = pdf_info['redondeo']
-    pdf_total      = pdf_info['pdf_total']
-
-    total_calculado = calc_afecto + total_equipos + pdf_redondeo
-    diferencia      = total_calculado - pdf_total
-    cuadra          = abs(diferencia) <= Decimal('0.01')
-
-    causas = []
-    if not cuadra:
-        if pdf_info['equipos_pdf'] and abs(total_equipos - pdf_info['equipos_pdf']) > Decimal('0.01'):
-            causas.append(
-                f"Equipos calculado S/{total_equipos:.2f} vs PDF S/{pdf_info['equipos_pdf']:.2f}"
-            )
-        if pdf_info['subtotal'] and abs(total_monto_f - pdf_info['subtotal']) > Decimal('0.01'):
-            causas.append(
-                f"Subtotal afecto calculado S/{total_monto_f:.2f} vs PDF S/{pdf_info['subtotal']:.2f}"
-            )
-        if not causas:
-            causas.append("Diferencia general entre el calculo y el total del recibo.")
-
-    # 9. Generar Excel
-    excel_wb = generate_excel(
-        processed, equipment_rows, pdf_info['subtotal'], total_monto_f
-    )
-    out = io.BytesIO()
-    excel_wb.save(out)
-    out.seek(0)
-
-    del fact_wb, traf_wb, cargos_wb
-
-    return {
-        'periodo':                    pdf_info['periodo'],
-        'line_count':                 len(processed),
-        'anexos_count':               len(fact_lines),
-        'disc_count_12m':             pdf_info['disc_count_12m'],
-        'discount_count':             sum(1 for p in processed if p['desc']),
-        'cargo_mensual_sin_igv':      float(total_monto),
-        'descuento_total':            float(total_desc),
-        'cargo_mensual_final_sin_igv':float(total_monto_f),
-        'igv':                        float(calc_igv),
-        'cargo_mensual_con_igv':      float(calc_afecto),
-        'equipos':                    float(total_equipos),
-        'redondeo':                   float(pdf_redondeo),
-        'total_calculado':            float(total_calculado),
-        'total_pdf':                  float(pdf_total),
-        'diferencia':                 float(diferencia),
-        'cuadra':                     cuadra,
-        'causas_no_cuadra':           causas,
-        'sin_cc_lines':               sin_cc_lines,
-        'sin_cc_count':               len(sin_cc_lines),
-        'sin_plan_lines':             sin_plan_lines,
-        'sin_plan_count':             len(sin_plan_lines),
-        'dup_phones':                 dup_phones,
-        'cc_warnings':                cc_warnings,
-        'cc_summary':                 cc_summary,
-        'excel_bytes':                out.getvalue(),
-    }
+    # Sólo el bloque detallado, evitando las cuotas repetidas en el resumen inicial.
+    inafectos = []
+    for block in re.finditer(r'^Cargos Adicionales Inafectos\s*:\s*', text, re.M | re.I):
+        body = text[block.end():]
+        stop = re.search(r'^(?:Redondeo\s*:|Nota de Cr[eé]dito|Conceptos facturables|Lugares de pago|Anexo\s+\d+\s*:)', body, re.I | re.M)
+        if stop:
+            body = body[:stop.start()]
+        item_headers = list(re.finditer(r'^(?:Cuota\s+\d+\s+de\s+\d+\s+)?financiamiento\s+(?:Equipo\b|(?:de\s+)?venta\b)', body, re.I | re.M))
+        for index, start in enumerate(item_headers):
+            end = item_headers[index + 1].start() if index + 1 < len(item_headers) else len(body)
+            item = body[start.start():end]
+            match = re.search(rf'{CURRENCY}({AMOUNT})(?!\d)', item, re.I)
+            ph = re.search(r'TELEF\s*:\s*([\d+\s-]+)', item, re.I)
+            phone = clean_phone(ph[1]) if ph else ''
+            if len(phone) != 9:
+                raise ValueError('No se puede identificar el teléfono de una cuota de financiamiento del PDF.')
+            if not match:
+                raise ValueError('No se puede interpretar el monto de una cuota de financiamiento del PDF.')
+            description = ' '.join(item[:match.start()].split())
+            normalized_desc = normalize(description)
+            inafectos.append({'phone': phone, 'description': description, 'monto': to_decimal(match[1]),
+                               'is_equipo': 'equipo' in normalized_desc,
+                               'is_venta': 'venta' in normalized_desc})
+    breakdown['total_desc_count'] = sum(breakdown[f'count_{k}'] for k in ('12m', '3m', 'perm'))
+    breakdown['total_desc_monto'] = sum((breakdown[f'monto_{k}'] for k in ('12m', '3m', 'perm')), ZERO)
+    declared = re.search(r'^Anexo\s*:\s*(\d+)\s*$', summary, re.M | re.I)
+    warnings = []
+    if declared and int(declared[1]) != len(parsed):
+        warnings.append(f'El recibo declara {declared[1]} Anexos y se extrajeron {len(parsed)}. Faltan registros o hay duplicados.')
+    if duplicates:
+        warnings.append('Existen números duplicados en el PDF: ' + ', '.join(sorted(set(duplicates))))
+    return {'periodo': period[1].title(), 'recibo_numero': receipt[1] if receipt else '',
+            'cargos_mensuales_resumen': amount('cargos mensuales'),
+            'descuentos_afectos_resumen': amount('descuentos y bonificaciones afectos'),
+            'cargos_adic_resumen': amount('cargos adicionales afectos'),
+            'descuentos_inafectos': amount('descuentos y bonificaciones inafectos') or ZERO,
+            'subtotal': subtotal, 'igv': igv, 'total_afecto': total_afecto,
+            'cargos_inafectos': inafectos_pdf, 'redondeo': redondeo,
+            'total_facturado': total_facturado, 'total_pagar': total_pagar,
+            'pdf_total': total_facturado if total_facturado is not None else total_pagar,
+            'lines': parsed, 'inafectos': inafectos, 'duplicate_phones': duplicates,
+            'integrity_warnings': warnings, 'discount_breakdown': breakdown,
+            'inafectos_breakdown': {'count_equipos': sum(x['is_equipo'] for x in inafectos),
+                                   'count_ventas': sum(x['is_venta'] for x in inafectos),
+                                   'total_count': len(inafectos),
+                                   'total_inafectos': sum((x['monto'] for x in inafectos), ZERO)}}
 
 
-# ---------------------------------------------------------------------------
-# Generacion del Excel de salida
-# ---------------------------------------------------------------------------
+def load_inventory(inv_bytes, with_warnings=False):
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(inv_bytes), data_only=True, read_only=True)
+    except Exception:
+        raise ValueError('No se pudo leer el Inventario Celulares General. Cargue un archivo .xlsx válido.') from None
+    try:
+        if 'PRODAC' not in wb.sheetnames:
+            raise ValueError('No se encuentra la hoja PRODAC en el Inventario Celulares General.')
+        rows = iter(wb['PRODAC'].iter_rows(values_only=True))
+        columns = {normalize(value): i for i, value in enumerate(next(rows, ()))}
+        if 'numero' not in columns or 'cc dpto' not in columns:
+            raise ValueError('Faltan los campos Numero o CC Dpto en la hoja PRODAC del Inventario General.')
+        inv, duplicates = {}, set()
+        for row in rows:
+            phone = clean_phone(row[columns['numero']])
+            if len(phone) != 9:
+                continue
+            cc_value = row[columns['cc dpto']]
+            cc = str(cc_value).strip() if cc_value is not None else ''
+            if phone in inv:
+                duplicates.add(phone)
+                if inv[phone] != cc:
+                    inv[phone] = ''
+            else:
+                inv[phone] = cc
+        if not inv:
+            raise ValueError('No se encontraron números válidos en la hoja PRODAC del Inventario General.')
+        warnings = ['Números duplicados en el inventario; revise su CC: ' + ', '.join(sorted(duplicates))] if duplicates else []
+        return (inv, warnings) if with_warnings else inv
+    finally:
+        wb.close()
 
-def generate_excel(processed_lines, equipment_rows, pdf_subtotal, total_monto_f):
-    """
-    Genera el Excel conciliado con tres hojas en el orden correcto:
-    1. CARGOS ADICIONALES
-    2. CARGO MENSUAL
-    3. Hoja1
-    """
-    wb = openpyxl.Workbook()
-    wb.remove(wb.active)
 
-    FMT_CURR   = '#,##0.00'
-    FMT_NUM    = '@'  # texto para telefonos
-    F_ARIAL    = Font(name='Arial', size=10)
-    F_HEADER   = Font(name='Arial', size=10, bold=True)
-    FILL_NONE  = None
+def _plan_key(plan):
+    plan = re.sub(r'\([^)]*\bal\b[^)]*\)', '', normalize(plan))
+    return re.sub(r'[^a-z0-9]', '', plan)
 
-    def hdr(ws, row, col, value):
-        c = ws.cell(row, col, value)
-        c.font = F_HEADER
-        return c
 
-    def dat(ws, row, col, value, is_curr=False, is_phone=False):
-        c = ws.cell(row, col, value)
-        c.font = F_ARIAL
-        if is_curr:
-            c.number_format = FMT_CURR
-        if is_phone:
-            c.number_format = FMT_NUM
-            c.value = str(value) if value is not None else ''
-        return c
+def validate_optional_files(fact_bytes, traf_bytes, cargos_bytes, password, parsed_lines, inafectos):
+    warnings = []
+    pdf_by_phone = {line['phone']: line for line in parsed_lines}
+    for label, data in [('Fact', fact_bytes), ('Traf', traf_bytes), ('Cargos', cargos_bytes)]:
+        if not data:
+            continue
+        try:
+            wb = openpyxl.load_workbook(decrypt_excel(data, password), data_only=True, read_only=True)
+        except Exception:
+            warnings.append(f'{label}: No se pudo abrir el archivo; revise el Excel y la contraseña mensual en Validación opcional.')
+            continue
+        try:
+            # El portal puede declarar A1:A1 aunque el XML contenga todas las filas.
+            wb.active.reset_dimensions()
+            rows = list(wb.active.iter_rows(values_only=True))
+            if label in ('Fact', 'Traf'):
+                # Columnas del formato del portal, sin fijar las filas de cabecera.
+                entries = defaultdict(list)
+                for row in rows:
+                    phone = clean_phone(row[1]) if len(row) > 1 else ''
+                    if len(row) > 4 and row[2] and not str(row[2]).strip().isdigit() and not row[4]:
+                        continue  # Fila de cuenta financiera, no una línea/anexo.
+                    if len(phone) == 9:
+                        entries[phone].append(row)
+                for phone, line in pdf_by_phone.items():
+                    if phone not in entries:
+                        warnings.append(f'{label}: Número {phone} presente en PDF y ausente en {label}.')
+                        continue
+                    if label == 'Fact':
+                        total = sum((to_decimal(row[19] or 0) + to_decimal(row[28] or 0)
+                                     for row in entries[phone]), ZERO)
+                        if abs(total - line['monto']) > TOLERANCE:
+                            warnings.append(f'Fact: Monto diferente para {phone}: Excel S/ {total:,.2f}; PDF MONTO S/ {line["monto"]:,.2f}.')
+                    else:
+                        plan = entries[phone][0][4] if len(entries[phone][0]) > 4 else ''
+                        if _plan_key(plan) != _plan_key(line['plan']):
+                            warnings.append(f'Traf: Plan diferente entre PDF y Traf para {phone}. PDF: {line["plan"]}; Traf: {plan or "vacío"}.')
+                for phone in sorted(entries.keys() - pdf_by_phone.keys()):
+                    warnings.append(f'{label}: Número {phone} presente en {label} y ausente en PDF.')
+                if not entries:
+                    warnings.append(f'{label}: No se encontraron teléfonos válidos para comparar.')
+            else:
+                entries = Counter()
+                for row in rows:
+                    for col, cell in enumerate(row):
+                        if not cell or not re.search(r'TELEF\s*:', str(cell), re.I):
+                            continue
+                        match = re.search(r'TELEF\s*:\s*([\d+\s-]+)', str(cell), re.I)
+                        phone = clean_phone(match[1]) if match else ''
+                        if len(phone) != 9 or col + 1 >= len(row) or row[col + 1] is None:
+                            continue
+                        entries[(phone, to_decimal(row[col + 1]))] += 1
+                total_excel = sum((amount * count for (_, amount), count in entries.items()), ZERO)
+                total_pdf = sum((x['monto'] for x in inafectos), ZERO)
+                warnings.append(f'Cargos: Excel S/ {total_excel:,.2f}; PDF S/ {total_pdf:,.2f}; diferencia S/ {total_pdf - total_excel:,.2f}.')
+                pdf_entries = Counter((x['phone'], x['monto']) for x in inafectos)
+                for (phone, amount), count in (pdf_entries - entries).items():
+                    warnings.append(f'Cargos: {count} cuota(s) de {phone} por S/ {amount:,.2f} presente(s) en PDF y ausente(s) en Cargos.')
+                for (phone, amount), count in (entries - pdf_entries).items():
+                    warnings.append(f'Cargos: {count} cuota(s) de {phone} por S/ {amount:,.2f} presente(s) en Cargos y ausente(s) en PDF.')
+        except (ValueError, IndexError):
+            warnings.append(f'{label}: No se pudo interpretar la estructura o un monto del Excel opcional.')
+        finally:
+            wb.close()
+    return warnings
 
-    # ================================================================
-    # HOJA 1: CARGOS ADICIONALES
-    # ================================================================
-    ws1 = wb.create_sheet('CARGOS ADICIONALES')
-    ws1.column_dimensions['A'].width = 5
-    ws1.column_dimensions['B'].width = 16
-    ws1.column_dimensions['C'].width = 85
-    ws1.column_dimensions['D'].width = 16
-    ws1.column_dimensions['E'].width = 14
-    ws1.freeze_panes = 'B3'
 
-    hdr(ws1, 2, 2, 'NUMERO')
-    hdr(ws1, 2, 3, 'DESCRIPCION')
-    hdr(ws1, 2, 4, 'MONTO')
-
-    row = 3
-    # Los datos del archivo Cargos ya contienen las cuotas de equipos.
-    # La fila del descuento general (NN) la ponemos primero si existe.
-    for eq in equipment_rows:
-        dat(ws1, row, 2, str(eq['phone']), is_phone=True)
-        dat(ws1, row, 3, eq['desc'])
-        dat(ws1, row, 4, float(eq['monto']), is_curr=True)
-        row += 1
-
-    last_data = row - 1
-    tot_cell = ws1.cell(row, 4, f'=SUM(D3:D{last_data})')
-    tot_cell.font = F_HEADER
-    tot_cell.number_format = FMT_CURR
-
-    # ================================================================
-    # HOJA 2: CARGO MENSUAL
-    # ================================================================
-    ws2 = wb.create_sheet('CARGO MENSUAL')
-    ws2.column_dimensions['A'].width = 8
-    ws2.column_dimensions['B'].width = 16
-    ws2.column_dimensions['C'].width = 52
-    ws2.column_dimensions['D'].width = 14
-    ws2.column_dimensions['E'].width = 14
-    ws2.column_dimensions['F'].width = 14
-    ws2.freeze_panes = 'B3'
-
-    hdr(ws2, 2, 2, 'NUMERO')
-    hdr(ws2, 2, 3, 'PLAN')
-    hdr(ws2, 2, 4, 'MONTO')
-    hdr(ws2, 2, 5, 'DESC')
-    hdr(ws2, 2, 6, 'MONTO F')
-
-    m_row = 3
-    idx   = 1
-    for item in processed_lines:
-        ws2.cell(m_row, 1, idx).font = F_ARIAL
-        dat(ws2, m_row, 2, str(item['phone']), is_phone=True)
-        dat(ws2, m_row, 3, item['plan'])
-        dat(ws2, m_row, 4, float(item['monto']), is_curr=True)
-
-        # DESC: solo poner valor si hay descuento; sino celda vacia
-        if item['desc'] is not None and item['desc'] > 0:
-            c_desc = ws2.cell(m_row, 5, float(item['desc']))
-            c_desc.font = F_ARIAL
-            c_desc.number_format = FMT_CURR
-        else:
-            ws2.cell(m_row, 5, None).number_format = FMT_CURR
-
-        # MONTO F: formula
-        c_mf = ws2.cell(m_row, 6, f'=D{m_row}-E{m_row}')
-        c_mf.font = F_ARIAL
-        c_mf.number_format = FMT_CURR
-
-        m_row += 1
-        idx   += 1
-
-    last_m = m_row - 1
-
-    # Fila total
-    def total_cell(ws, row, col, formula):
-        c = ws.cell(row, col, formula)
-        c.font = F_HEADER
-        c.number_format = FMT_CURR
-        return c
-
-    total_cell(ws2, m_row, 4, f'=SUM(D3:D{last_m})')
-    total_cell(ws2, m_row, 5, f'=SUM(E3:E{last_m})')
-    total_cell(ws2, m_row, 6, f'=SUM(F3:F{last_m})')
-
-    # Filas de verificacion: subtotal del PDF y diferencia
-    row_pdf = m_row + 1
-    row_dif = m_row + 2
-    if pdf_subtotal is not None:
-        c_pdf = ws2.cell(row_pdf, 4, float(pdf_subtotal))
-        c_pdf.font = F_HEADER
-        c_pdf.number_format = FMT_CURR
-        c_dif = ws2.cell(row_dif, 4, f'=F{m_row}-D{row_pdf}')
-        c_dif.font = F_HEADER
-        c_dif.number_format = FMT_CURR
-
-    # ================================================================
-    # HOJA 3: Hoja1
-    # ================================================================
-    ws3 = wb.create_sheet('Hoja1')
-    ws3.column_dimensions['A'].width = 16
-    ws3.column_dimensions['B'].width = 14
-    ws3.column_dimensions['C'].width = 24
-    ws3.column_dimensions['G'].width = 24
-    ws3.column_dimensions['H'].width = 16
-    ws3.column_dimensions['I'].width = 14
-    ws3.column_dimensions['J'].width = 16
-    ws3.freeze_panes = 'A2'
-
-    # Encabezados en fila 1
-    hdr(ws3, 1, 1, 'NUMERO')
-    hdr(ws3, 1, 2, 'MONTO')
-    hdr(ws3, 1, 3, 'CC')
-
-    # Ordenar por CC luego por telefono
-    sorted_lines = sorted(
-        processed_lines,
-        key=lambda x: (x['cc'] or 'ZZZZ', x['phone'])
-    )
-
-    h_row   = 2
-    cc_totals = {}   # cc -> Decimal
-
-    for item in sorted_lines:
-        dat(ws3, h_row, 1, str(item['phone']), is_phone=True)
-        c_m = ws3.cell(h_row, 2, float(item['monto_f']))
-        c_m.font = F_ARIAL
-        c_m.number_format = FMT_CURR
-        dat(ws3, h_row, 3, item['cc'] or '')
-
-        cc_name = item['cc'] or 'Sin CC'
-        cc_totals[cc_name] = cc_totals.get(cc_name, Decimal('0')) + item['monto_f']
-
-        h_row += 1
-
-    last_h = h_row - 1
-    tot_h = ws3.cell(h_row, 2, f'=SUM(B2:B{last_h})')
-    tot_h.font = F_HEADER
-    tot_h.number_format = FMT_CURR
-
-    # Tabla de resumen por CC (columnas G, H, I, J) - encabezado en fila 4
-    hdr(ws3, 4, 7, 'Etiquetas de fila')
-    hdr(ws3, 4, 8, 'Suma de MONTO')
-    hdr(ws3, 4, 9, 'IGV')
-    hdr(ws3, 4, 10, 'TOTAL')
-
-    s_row = 5
-    for cc_name, cc_sum in cc_totals.items():
-        ws3.cell(s_row, 7, cc_name).font = F_ARIAL
-        c_sm = ws3.cell(s_row, 8, float(cc_sum))
-        c_sm.font = F_ARIAL
-        c_sm.number_format = FMT_CURR
-        c_igv = ws3.cell(s_row, 9, f'=H{s_row}*0.18')
-        c_igv.font = F_ARIAL
-        c_igv.number_format = FMT_CURR
-        c_tot = ws3.cell(s_row, 10, f'=H{s_row}+I{s_row}')
-        c_tot.font = F_ARIAL
-        c_tot.number_format = FMT_CURR
-        s_row += 1
-
-    last_s = s_row - 1
-    ws3.cell(s_row, 7, 'Total general').font = F_HEADER
-    c_tg_h = ws3.cell(s_row, 8, f'=SUM(H5:H{last_s})')
-    c_tg_h.font = F_HEADER
-    c_tg_h.number_format = FMT_CURR
-    c_tg_j = ws3.cell(s_row, 10, f'=SUM(J5:J{last_s})')
-    c_tg_j.font = F_HEADER
-    c_tg_j.number_format = FMT_CURR
-
-    return wb
+def process_movistar_files(*args, **kwargs):
+    """Dos entradas obligatorias; conserva compatibilidad con la antigua llamada API."""
+    keys = ['pdf_bytes', 'inventory_bytes', 'fact_bytes', 'traf_bytes', 'cargos_bytes', 'password']
+    if len(args) >= 4 and not (isinstance(args[0], bytes) and args[0].startswith(b'%PDF')):
+        keys = ['fact_bytes', 'traf_bytes', 'cargos_bytes', 'pdf_bytes', 'inventory_bytes', 'password']
+    values = dict(zip(keys, args))
+    values.update(kwargs)
+    pdf_bytes, inventory_bytes = values.get('pdf_bytes'), values.get('inventory_bytes')
+    if not pdf_bytes:
+        raise ValueError('Debe cargar el recibo mensual de Movistar en PDF.')
+    if not inventory_bytes:
+        raise ValueError('Debe cargar el archivo Inventario Celulares General.')
+    timings = PhaseTimings()
+    pdf = timings.run('pdf_read_ms', extract_pdf_data, pdf_bytes)
+    inv, inventory_warnings = timings.run('excel_read_ms', load_inventory, inventory_bytes, with_warnings=True)
+    lines, inafectos = pdf['lines'], pdf['inafectos']
+    sin_cc, cc_counts, cc_sums = [], Counter(), defaultdict(lambda: ZERO)
+    for line in lines:
+        cc = inv.get(line['phone']) or 'SIN CC'
+        line['cc'] = cc
+        if cc == 'SIN CC':
+            sin_cc.append({'phone': line['phone'], 'plan': line['plan'], 'monto_f': float(line['monto_f']),
+                           'obs': 'Sin CC en el Inventario General (hoja PRODAC); revisar asignación.'})
+        cc_counts[cc] += 1
+        cc_sums[cc] += line['monto_f']
+    timings.mark('inventory_match_ms')
+    totals = {key: sum((l[key] for l in lines), ZERO) for key in ('monto', 'desc', 'monto_f')}
+    inaf_total = sum((i['monto'] for i in inafectos), ZERO)
+    total_afecto = totals['monto_f'] + pdf['igv']
+    calculated = total_afecto + inaf_total + pdf['redondeo']
+    difference = calculated - pdf['pdf_total']
+    sub_difference = totals['monto_f'] - pdf['subtotal']
+    inaf_difference = inaf_total - pdf['cargos_inafectos']
+    warnings = list(pdf['integrity_warnings'])
+    if abs(sub_difference) > TOLERANCE:
+        warnings.append(f'El subtotal calculado no coincide con el PDF: diferencia S/ {sub_difference:,.2f}.')
+    if abs(inaf_difference) > TOLERANCE:
+        warnings.append(f'Los cargos inafectos extraídos no coinciden con el PDF: diferencia S/ {inaf_difference:,.2f}.')
+    if abs(total_afecto - pdf['total_afecto']) > TOLERANCE:
+        warnings.append('El Total afecto calculado no coincide con el resumen del PDF.')
+    if pdf['descuentos_inafectos']:
+        warnings.append('El recibo contiene descuentos inafectos; requiere revisión de la conciliación.')
+    if abs(difference) > TOLERANCE:
+        warnings.append(f'El total calculado no coincide con el Total facturado del PDF: diferencia S/ {difference:,.2f}.')
+    cuadra = not warnings
+    display_warnings = warnings + inventory_warnings
+    if sin_cc:
+        display_warnings.append(f'{len(sin_cc)} líneas sin centro de costo; sus importes permanecen incluidos en todos los totales.')
+    timings.mark('reconciliation_ms')
+    optional = timings.run('excel_read_ms', validate_optional_files, values.get('fact_bytes'), values.get('traf_bytes'),
+                                       values.get('cargos_bytes'), values.get('password') or '', lines, inafectos)
+    result = {'periodo': pdf['periodo'], 'recibo_numero': pdf['recibo_numero'],
+              'line_count': len(lines), 'cargo_mensual_sin_igv': float(totals['monto']),
+              'descuento_total': float(totals['desc']), 'cargo_final_sin_igv': float(totals['monto_f']),
+              'subtotal_pdf': float(pdf['subtotal']), 'igv': float(pdf['igv']),
+              'total_afecto': float(total_afecto), 'cargos_inafectos': float(inaf_total),
+              'cargos_inafectos_pdf': float(pdf['cargos_inafectos']), 'redondeo': float(pdf['redondeo']),
+              'total_facturado': float(pdf['total_facturado']) if pdf['total_facturado'] is not None else None,
+              'total_pagar': float(pdf['total_pagar']) if pdf['total_pagar'] is not None else None,
+              'descuentos_inafectos': float(pdf['descuentos_inafectos']),
+              'pdf_total': float(pdf['pdf_total']), 'total_calculado': float(calculated),
+              'diferencia': float(difference), 'diferencia_subtotal': float(sub_difference),
+              'diferencia_inafectos': float(inaf_difference), 'cuadra': cuadra,
+              'estado': 'CUADRA' if cuadra else 'NO CUADRA',
+              'discount_count': pdf['discount_breakdown']['total_desc_count'],
+              'discount_breakdown': {k: float(v) if isinstance(v, Decimal) else v
+                                     for k, v in pdf['discount_breakdown'].items()},
+              'inafectos_breakdown': {k: float(v) if isinstance(v, Decimal) else v
+                                      for k, v in pdf['inafectos_breakdown'].items()},
+              'sin_cc_count': len(sin_cc), 'sin_cc_lines': sin_cc,
+              'resumen_cc': [{'cc': cc, 'lineas': cc_counts[cc], 'monto': float(amount),
+                              'pct': round(float(amount / totals['monto_f'] * 100), 2) if totals['monto_f'] else 0}
+                             for cc, amount in sorted(cc_sums.items())],
+              'lines_sample': [{k: float(v) if isinstance(v, Decimal) else v for k, v in l.items()} for l in lines[:50]],
+              'warnings': display_warnings, 'optional_warnings': optional,
+              'resumen_pdf': {key: float(value) if isinstance(value, Decimal) else value
+                              for key, value in pdf.items() if key in (
+                                  'cargos_mensuales_resumen', 'descuentos_afectos_resumen',
+                                  'cargos_adic_resumen', 'subtotal', 'igv', 'total_afecto',
+                                  'descuentos_inafectos', 'cargos_inafectos', 'redondeo',
+                                  'total_facturado', 'total_pagar')},
+              }
+    timings.mark('reconciliation_ms')
+    result['excel_bytes'] = timings.run('workbook_ms', generate_movistar_excel, lines, inafectos, inv, pdf)
+    result['timings'] = timings.snapshot()
+    result.update(cargo_mensual_final_sin_igv=result['cargo_final_sin_igv'], total_pdf=result['pdf_total'],
+                  cargo_mensual_con_igv=result['total_afecto'], equipos_pdf=result['cargos_inafectos_pdf'],
+                  equipos=result['cargos_inafectos'], cc_summary=result['resumen_cc'],
+                  disc_count_12m=pdf['discount_breakdown']['count_12m'])
+    return result

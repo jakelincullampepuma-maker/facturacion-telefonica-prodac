@@ -1,6 +1,66 @@
 ﻿/* Procesamiento local Entel. Los documentos permanecen en el navegador. */
 (function () {
   'use strict';
+  const workerUrl = typeof document !== 'undefined' ? new URL('entelExcelWorker.js', document.currentScript.src).href : '';
+  const libraries = {
+    XLSX: 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js',
+    pdfjsLib: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+    JSZip: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+  };
+  const pendingLibraries = new Map();
+  async function ensureLibraries() {
+    await Promise.all(Object.entries(libraries).map(([name, src]) => {
+      if (globalThis[name]) return;
+      if (!pendingLibraries.has(name)) pendingLibraries.set(name, new Promise((resolve, reject) => {
+        const script = document.createElement('script'); script.src = src; script.async = true;
+        script.onload = resolve;
+        script.onerror = () => { pendingLibraries.delete(name); script.remove(); reject(new Error('No se cargó ' + name + '. Revise su conexión e intente procesar de nuevo.')); };
+        document.head.appendChild(script);
+      }));
+      return pendingLibraries.get(name);
+    }));
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  async function readWorkbooks(excelFile, inventoryFile, measurement) {
+    const [original, inventoryBytes] = await measurement.measure('excel_read_ms', () => Promise.all([excelFile.arrayBuffer(), inventoryFile.arrayBuffer()]));
+    let worker;
+    // file:// no permite Workers de archivos locales en Chrome; el resto usa Worker.
+    if (typeof Worker !== 'undefined' && location.protocol !== 'file:') {
+      try {
+        worker = new Worker(workerUrl);
+        await measurement.measure('worker_init_ms', () => new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => { worker.terminate(); reject(new Error('Worker no disponible.')); }, 12000);
+          worker.onmessage = event => { if (event.data.ready) { clearTimeout(timeout); resolve(); } };
+          worker.onerror = event => { event.preventDefault(); clearTimeout(timeout); reject(new Error('Worker no disponible.')); };
+        }));
+      } catch { worker?.terminate(); worker = null; }
+    }
+    if (worker) {
+      try {
+        const parsed = await new Promise((resolve, reject) => {
+          worker.onmessage = event => event.data.error ? reject(new Error(event.data.error)) : resolve(event.data);
+          worker.onerror = event => reject(new Error(event.message || 'No se pudo leer el Excel en segundo plano.'));
+          worker.postMessage({original, inventoryBytes}, [original, inventoryBytes]);
+        });
+        for (const [key, value] of Object.entries(parsed.timings)) measurement.run.timings[key] += value;
+        parsed.worker = true;
+        return parsed;
+      } finally { worker.terminate(); }
+    }
+    await UploadUI.yieldToBrowser();
+    let wb, invWb;
+    wb = await measurement.measure('excel_read_ms', async () => {
+      try { return XLSX.read(original, {type: 'array'}); } catch (e) { throw new Error('No se pudo leer el Excel de Entel: ' + e.message); }
+    });
+    await UploadUI.yieldToBrowser();
+    invWb = await measurement.measure('excel_read_ms', async () => {
+      try { return XLSX.read(inventoryBytes, {type: 'array'}); } catch (e) { throw new Error('No se pudo leer el inventario: ' + e.message); }
+    });
+    await UploadUI.yieldToBrowser();
+    const detail = billing(wb), prev = previous(wb);
+    const inv = await measurement.measure('inventory_match_ms', async () => inventory(invWb));
+    return {original, detail, inv, prev, worker: false};
+  }
   const norm = v => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[_\s]+/g, ' ').trim();
   const str = v => String(v ?? '').trim();
   function phone(v) {
@@ -91,7 +151,8 @@
       doc = await task.promise;
       const texts = [], pageRows = [];
       for (let p = 1; p <= doc.numPages; p++) {
-        const content = await (await doc.getPage(p)).getTextContent();
+        const page = await doc.getPage(p);
+        const content = await page.getTextContent();
         texts.push(content.items.map(i => i.str).join('\n'));
         const lines = [];
         for (const i of content.items.filter(i => i.str.trim())) {
@@ -101,6 +162,8 @@
           line.items.push(i);
         }
         pageRows.push(lines.sort((a, b) => b.y - a.y).map(l => l.items.sort((a, b) => a.transform[4] - b.transform[4]).map(i => i.str).join(' ')));
+        page.cleanup();
+        await UploadUI.yieldToBrowser();
       }
       const first = texts[0], all = texts.join('\n');
       let plan = null, equipment = null;
@@ -135,18 +198,17 @@
         recibo_nro: first.match(/\b[A-Z0-9]{3,5}-\d{6,}\b/)?.[0] || 'No detectado'};
     } finally { if (doc) await doc.destroy(); else await task.destroy(); }
   }
-  async function process(excelFile, inventoryFile, pdfFile) {
-    for (const lib of ['XLSX', 'pdfjsLib', 'JSZip']) if (!window[lib]) throw new Error('No se cargó ' + lib + '. Revise su conexión a Internet y recargue la página.');
-    const original = await excelFile.arrayBuffer();
-    let wb, invWb;
-    try { wb = XLSX.read(original, {type: 'array'}); } catch (e) { throw new Error('No se pudo leer el Excel de Entel: ' + e.message); }
-    try { invWb = XLSX.read(await inventoryFile.arrayBuffer(), {type: 'array'}); } catch (e) { throw new Error('No se pudo leer el inventario: ' + e.message); }
-    const detail = billing(wb), inv = inventory(invWb), prev = previous(wb), pdf = await pdfInfo(pdfFile);
+  async function process(excelFile, inventoryFile, pdfFile, measurement = UploadUI.startRun('entel')) {
+    await measurement.measure('libraries_ms', ensureLibraries);
+    const {original, detail, inv, prev, worker} = await readWorkbooks(excelFile, inventoryFile, measurement);
+    const pdf = await measurement.measure('pdf_read_ms', () => pdfInfo(pdfFile));
+    const matchStart = performance.now();
     const counts = new Map();
     for (const {r} of detail.lines) { const n = phone(r[detail.h.phone]); counts.set(n, (counts.get(n) || 0) + 1); }
     const discrepancies = [];
     let sum = 0, sinCC = 0, missing = 0, matched = 0;
-    const lines = detail.lines.map(({r, row}) => {
+    const lines = [];
+    for (const {r, row} of detail.lines) {
       const n = phone(r[detail.h.phone]), item = inv.entel.get(n), notes = [];
       const amount = cents(r[detail.h.amount], 'Cargo Fijo de ' + n + ', fila ' + row);
       sum += amount;
@@ -161,8 +223,11 @@
       }
       if (inv.duplicates.has(n)) { notes.push('Número duplicado en inventario: se utilizó la primera coincidencia; revisar asignación'); estado = 'Duplicado en inventario'; }
       if (counts.get(n) > 1) { notes.push('Número duplicado en la factura'); estado = 'Duplicado'; }
-      return {phone: n, plan: str(r[detail.h.plan]), cargo_fijo: amount / 100, empresa: item?.empresa || '', usuario: item?.usuario || '', area: item?.area || '', departamento: item?.departamento || '', cc_dpto: item?.cc_dpto || '', prs_code: item?.cc_area && item.cc_area !== item.cc_dpto ? item.cc_area : '', estado, observacion: notes.join('; ')};
-    });
+      lines.push({phone: n, plan: str(r[detail.h.plan]), cargo_fijo: amount / 100, empresa: item?.empresa || '', usuario: item?.usuario || '', area: item?.area || '', departamento: item?.departamento || '', cc_dpto: item?.cc_dpto || '', prs_code: item?.cc_area && item.cc_area !== item.cc_dpto ? item.cc_area : '', estado, observacion: notes.join('; ')});
+      if (lines.length % 200 === 0) await UploadUI.yieldToBrowser();
+    }
+    measurement.run.timings.inventory_match_ms += performance.now() - matchStart;
+    const reconcileStart = performance.now();
     const groups = new Map();
     for (const l of lines) {
       const cc = l.cc_dpto || 'Sin Centro de Costo';
@@ -173,9 +238,13 @@
     const diff = sum - pdf.plan, ok = Math.abs(diff) <= 1, obs = lines.filter(l => l.observacion || l.estado !== 'Conciliado');
     const dupCount = [...counts.values()].reduce((a, n) => a + Math.max(n - 1, 0), 0);
     const result = {success: true, periodo: pdf.periodo, recibo_nro: pdf.recibo_nro, sheet_used: detail.name, line_count: lines.length, conciliado_count: matched, sin_cc_count: sinCC, no_inv_count: missing, dup_count: dupCount, total_excel: sum / 100, total_pdf_plan: pdf.plan / 100, total_pdf_equipos: pdf.equipos / 100, total_pdf_factura: pdf.total === null ? null : pdf.total / 100, diferencia: diff / 100, cuadra: ok, es_valido_todo: ok && !sinCC && !missing && !dupCount && !lines.some(l => inv.duplicates.has(l.phone)), estado_conciliacion: ok ? 'CONCILIADO' : 'REVISAR', mensaje_conciliacion: ok ? 'CONCILIADO — Los importes de PLAN coinciden.' : 'REVISAR — El total del Excel difiere del PLAN del PDF.', cc_discrepancies: discrepancies, lines, cc_summary: summary, obs_lines: obs, obs_lines_count: obs.length};
-    result.excel_blob = await EntelWorkbook.create(original, result);
+    measurement.run.timings.reconciliation_ms += performance.now() - reconcileStart;
+    await UploadUI.yieldToBrowser();
+    result.excel_blob = await measurement.measure('workbook_ms', () => EntelWorkbook.create(original, result));
+    result.timings = {...measurement.run.timings};
+    result.excel_worker = worker;
     result.filename = excelFile.name.replace(/\.xlsx$/i, '') + ' - Conciliado.xlsx';
     return result;
   }
-  window.EntelProcessor = {process, cents, phone, billing, inventory, previous, pdfInfo};
+  globalThis.EntelProcessor = {process, cents, phone, billing, inventory, previous, pdfInfo, ensureLibraries};
 })();
