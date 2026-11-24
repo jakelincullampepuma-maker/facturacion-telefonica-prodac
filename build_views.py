@@ -4,8 +4,17 @@ Sólo genera HTML estático: Entel sigue funcionando sin servidor de procesamien
 Los identificadores se conservan para los controladores de cada operador.
 """
 from pathlib import Path
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent
+FAVICON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="324" height="374" viewBox="0 0 324 374">'
+    '<path fill="#00A6D4" fill-rule="evenodd" d="'
+    'M162 10 314 98V276L163 363 88 319V145L162 101 237 145V228L163 271 '
+    '126 249V294L163 315 276 250V121L162 55 49 121V297L10 275V98Z '
+    'M162 145 199 167V207L162 229 126 207V167Z"/></svg>'
+)
+FAVICON_URL = 'data:image/svg+xml,' + quote(FAVICON_SVG, safe='')
 VIEWS = {
     'claro': dict(name='Claro', result='claroResultsSection', review='claroMissingCcSection',
         files=[('claro','Excel de Claro','XLSX · Factura Detallada'),('inv','Inventario General','XLSX'),('pdf','Recibo PDF de Claro','PDF')],
@@ -88,7 +97,7 @@ def render(operator):
     return f'''<!doctype html>
 <!-- Generado por build_views.py: editar la plantilla compartida, no esta página. -->
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Módulo {name} | Conciliación Telefónica PRODAC</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f2746'/%3E%3Cpath d='M9 24V8h7a6 6 0 0 1 0 12h-3v4zm4-8h3a2 2 0 0 0 0-4h-3z' fill='white'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="{FAVICON_URL}">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css"><link rel="stylesheet" href="css/components.css"></head><body>
 <aside class="sidebar" data-operator="{operator}"></aside><script src="js/sidebar.js"></script>
