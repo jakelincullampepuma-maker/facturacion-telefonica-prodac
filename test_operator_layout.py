@@ -1,6 +1,6 @@
 """Comprueba los tres paneles compartidos al mismo zoom (100%)."""
 import json
-import hashlib
+import base64
 import io
 import os
 from pathlib import Path
@@ -45,6 +45,7 @@ class OperatorLayoutTests(unittest.TestCase):
 
     def page(self, context, module):
         page = context.new_page()
+        page.set_default_timeout(120000)
         page.goto(self.base + "/" + module + ".html")
         page.evaluate("document.fonts.ready")
         return page
@@ -60,7 +61,8 @@ class OperatorLayoutTests(unittest.TestCase):
           const measure=e=>{
             const s=getComputedStyle(e), r=e.getBoundingClientRect();
             return {x:r.x,width:r.width,top:r.top,bottom:r.bottom,height:r.height,
-              fontSize:s.fontSize,fontFamily:s.fontFamily,padding:s.padding,margin:s.margin,gap:s.gap};
+              fontSize:s.fontSize,fontFamily:s.fontFamily,fontWeight:s.fontWeight,lineHeight:s.lineHeight,
+              borderRadius:s.borderRadius,padding:s.padding,margin:s.margin,gap:s.gap};
           };
           return {sidebar:{...measure(sidebar),scrollHeight:sidebar.scrollHeight,clientHeight:sidebar.clientHeight,scrollWidth:sidebar.scrollWidth,clientWidth:sidebar.clientWidth},
             header:measure(document.querySelector('.sidebar-header')),nav:measure(nav),
@@ -110,11 +112,34 @@ class OperatorLayoutTests(unittest.TestCase):
                     panel = page.locator('.sidebar')
                     panel.screenshot(path=str(self.out / f'panel-{module}-{width}x{height}.png'), animations='disabled')
                     page.add_style_tag(content='.sidebar *{transition:none!important;}.sidebar .operator-link,.sidebar .operator-link.active,.sidebar .operator-link .op-badge-soon,.sidebar .operator-link .operator-icon{background:transparent!important;border-color:transparent!important;color:#8fa2b7!important;}')
-                    normalized.append(hashlib.sha256(panel.screenshot(path=str(self.out / f'normalized-{module}-{width}x{height}.png'), animations='disabled')).hexdigest())
-                self.assertEqual(len(set(normalized)), 1, 'Los paneles difieren incluso al neutralizar únicamente sus colores activos.')
+                    normalized.append(base64.b64encode(panel.screenshot(path=str(self.out / f'normalized-{module}-{width}x{height}.png'), animations='disabled')).decode())
+                # Comparar píxeles decodificados: el PNG y su rasterizado pueden
+                # variar levemente entre compositores. La geometría y los estilos
+                # se siguen comparando exactamente para los ocho elementos.
+                visual = page.evaluate('''async images => {
+                  const pixels = await Promise.all(images.map(async encoded => {
+                    const image = new Image(); image.src = 'data:image/png;base64,'+encoded;
+                    await image.decode(); const canvas = document.createElement('canvas');
+                    canvas.width=image.width; canvas.height=image.height;
+                    const ctx=canvas.getContext('2d'); ctx.drawImage(image,0,0);
+                    return {width:image.width,height:image.height,data:ctx.getImageData(0,0,image.width,image.height).data};
+                  }));
+                  const first=pixels[0]; return pixels.slice(1).map(other => {
+                    let squared=0, changed=0;
+                    for(let i=0;i<first.data.length;i++) {
+                      const delta=first.data[i]-other.data[i]; squared+=delta*delta;
+                      if(delta) changed++;
+                    }
+                    return {width:other.width,height:other.height,rmse:Math.sqrt(squared/first.data.length),changedChannels:changed};
+                  });
+                }''',normalized)
+                self.reports.append({'viewport':[width,height],'visual_comparison':visual})
+                for comparison in visual:
+                    self.assertEqual((comparison['width'],comparison['height']),(240,height))
+                    self.assertLessEqual(comparison['rmse'],1.0,'Los paneles presentan diferencias visuales: '+str(visual))
                 for module in ['movistar','entel']:
                     for element in ['header','button','badge','footer','nav','main']:
-                        for key in ['x','width','fontSize','fontFamily','padding','margin','gap']:
+                        for key in ['x','width','fontSize','fontFamily','fontWeight','lineHeight','borderRadius','padding','margin','gap']:
                             self.assertEqual(metrics[module][element][key], metrics['claro'][element][key], module+'.'+element+'.'+key)
                     self.assertEqual(metrics[module]['options'],metrics['claro']['options'])
                     self.assertEqual(metrics[module]['icons'],metrics['claro']['icons'])

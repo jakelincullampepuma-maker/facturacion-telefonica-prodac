@@ -120,7 +120,10 @@ class ClaroBrowserTests(unittest.TestCase):
             report=response.value.json()
             page.locator('#claroResultsSection').wait_for(state='visible')
             pending=[]
-            page.route('**/api/claro/process',lambda route:pending.append(route))
+            def hold(route):
+                pending.append(route)
+                page.evaluate('window.heldTestRequests=(window.heldTestRequests||0)+1')
+            page.route('**/api/claro/process',hold)
             page.locator('#btn-process-files').click()
             self.assertEqual(page.locator('#process-button-label').inner_text(),'Procesando…')
             self.assertEqual(page.locator('#btn-process-files').get_attribute('aria-busy'),'true')
@@ -128,6 +131,7 @@ class ClaroBrowserTests(unittest.TestCase):
             for field in ['claro','inv','pdf']:
                 self.assertTrue(page.locator('#input-'+field+'-file').is_disabled())
             self.assertTrue(page.locator('#btn-clear-files').is_disabled())
+            page.wait_for_function('window.heldTestRequests === 1')
             pending.pop().fulfill(status=500,content_type='application/json',body=json.dumps({'success':False,'error':'Error de prueba al leer el PDF.'}))
             page.locator('#process-message').wait_for(state='visible')
             self.assertEqual(page.locator('#process-message').inner_text(),'Error de prueba al leer el PDF.')
@@ -137,6 +141,7 @@ class ClaroBrowserTests(unittest.TestCase):
                 self.assertTrue(page.locator('#input-'+field+'-file').is_enabled())
             page.locator('#btn-process-files').click()
             self.assert_results_hidden(page)
+            page.wait_for_function('window.heldTestRequests === 2')
             pending.pop().fulfill(status=200,content_type='application/json',body=json.dumps(report))
             page.locator('#claroResultsSection').wait_for(state='visible')
             page.wait_for_function("!document.getElementById('btn-clear-files').disabled")
