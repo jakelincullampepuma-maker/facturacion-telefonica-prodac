@@ -1,3 +1,4 @@
 msoffcrypto-tool==6.0.0
 openpyxl==3.1.5
 pypdf==6.20.0
+fonttools==4.61.1

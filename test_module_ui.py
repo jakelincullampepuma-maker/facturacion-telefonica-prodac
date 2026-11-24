@@ -50,8 +50,8 @@ class ModuleUITests(unittest.TestCase):
         before = OUT/'business-before.json'
         if before.is_file():
             hashes = json.loads(before.read_text(encoding='utf-8-sig'))
-            # El servidor cambia de rutas; los motores y lectores conservan su contrato.
-            cls.report['business_unchanged'] = all(hashlib.sha256((ROOT/path).read_bytes()).hexdigest().upper()==digest for path,digest in hashes.items() if path != 'server.py')
+            # Excluir el enrutamiento y el lector Movistar corregidos desde esta captura.
+            cls.report['unchanged_workbook_and_other_operator_sources'] = all(hashlib.sha256((ROOT/path).read_bytes()).hexdigest().upper()==digest for path,digest in hashes.items() if path not in ('server.py', 'movistar_engine.py'))
         (OUT/'verification.json').write_text(json.dumps(cls.report,ensure_ascii=False,indent=2),encoding='utf-8')
         sections = []
         for size in ['desktop','laptop','small']:
@@ -67,11 +67,11 @@ class ModuleUITests(unittest.TestCase):
         self.assertEqual((ROOT/'index.html').read_text(encoding='utf-8'),render('claro'))
 
     @unittest.skipUnless((OUT/'business-before.json').is_file(),'Registro local anterior no disponible.')
-    def test_business_sources_unchanged(self):
+    def test_unchanged_workbook_and_other_operator_sources(self):
         hashes=json.loads((OUT/'business-before.json').read_text(encoding='utf-8-sig'))
         for path,digest in hashes.items():
-            if path == 'server.py':
-                continue  # El enrutamiento HTTP se verifica en test_release_server.
+            if path in ('server.py', 'movistar_engine.py'):
+                continue  # Sus regresiones tienen pruebas HTTP y de lectura propias.
             self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest().upper(),digest,path)
 
     def test_initial_geometry_and_presentation_states(self):

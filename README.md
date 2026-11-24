@@ -52,7 +52,9 @@ Ejecutar en la terminal o consola de comandos (CMD / PowerShell):
 python -m pip install -r requirements.txt
 ```
 
-Movistar utiliza las dependencias existentes: `pypdf`, `openpyxl` y `msoffcrypto-tool`. No requiere nuevas bibliotecas de ejecución ni Excel instalado en el servidor.
+Movistar utiliza `pypdf`, `openpyxl`, `msoffcrypto-tool` y `fonttools==4.61.1` para interpretar las fuentes CFF de sus recibos. No requiere Excel instalado en el servidor. El lector reconoce también los pies con texto mal decodificado (por ejemplo, `Integratel Perœ` y `PÆgina`), para que no se añadan a un cargo pendiente si fontTools no está disponible.
+
+`python -m unittest test_movistar_page_breaks -v` comprueba cargos y descuentos partidos entre páginas y la conciliación y generación del Excel. Los casos reales se configuran con `MOVISTAR_REAL_CASES` o `data/movistar-page-breaks/cases.json`: cada entrada `october`/`november` contiene `pdf`, `inventory`, `line_count`, `anexo`, `phone`, `charge` y `discount` (importe original con signo). Este manifiesto y los documentos privados permanecen fuera de Git; las regresiones sintéticas se ejecutan en CI.
 
 ---
 

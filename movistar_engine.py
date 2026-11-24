@@ -66,9 +66,14 @@ def decrypt_excel(file_bytes, password=''):
 
 def _is_page_header(line):
     text = normalize(line)
-    return (not text or text in ('empresas movil', 'importe s/', 'importe s/.')
-            or text.startswith(('integratel peru', 'telefonica del peru'))
-            or bool(re.fullmatch(r'pagina\s+\d+\s*/\s*\d+', text)))
+    # Las fuentes CFF pueden extraerse como "Perœ" y "PÆgina" sin fontTools.
+    # Reconocer las marcas del pie incluso si se separan en varias líneas.
+    return (not text or text == 'empresas movil'
+            or bool(re.fullmatch(r'importe\s+s\s*/\.?', text))
+            or text.startswith(('integratel per', 'telefonica del per'))
+            or bool(re.search(r'\br\.?\s*u\.?\s*c\.?\s*:?\s*20100017491\b', text))
+            or bool(re.search(r'\bjr\.?\s+domingo\s+martinez\b', text))
+            or bool(re.search(r'\bp(?:a¡?|æ|\ufffd)gina\b', text)))
 
 
 def _discount_kind(description):
@@ -161,7 +166,7 @@ def extract_pdf_data(pdf_bytes):
                     raise ValueError(f'No se puede interpretar un monto del Anexo {header[1]}.')
                 section = normalize(heading[1])
                 line = heading[2].strip()
-            if section is None or not line.strip():
+            if section is None or _is_page_header(line):
                 continue
             pending = f'{pending} {line}'.strip()
             match = END_AMOUNT.search(pending)
