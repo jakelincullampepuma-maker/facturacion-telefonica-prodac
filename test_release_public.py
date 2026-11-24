@@ -97,6 +97,8 @@ class SafeReleaseBrowserTests(unittest.TestCase):
             self.assertEqual(page.url, self.base+'/claro?source=home')
             for operator in VIEWS:
                 page.locator(f'.operator-link[href="/{operator}"]').click()
+                page.wait_for_load_state('load')
+                page.locator('.operator-link').nth(2).wait_for(state='visible')
                 self.assertEqual(page.url, self.base+f'/{operator}')
                 self.assertEqual(page.locator('.operator-link').evaluate_all('nodes=>nodes.map(n=>n.getAttribute("href"))'), ['/claro', '/movistar', '/entel'])
                 self.assertEqual(page.locator('.sidebar-logo').get_attribute('href'), '/claro')
