@@ -12,11 +12,11 @@ if %errorlevel% neq 0 (
 )
 echo.
 echo Modulos disponibles en el servidor:
-echo   - Entel:    http://localhost:8080/entel.html
-echo   - Movistar: http://localhost:8080/movistar.html
-echo   - Claro:    http://localhost:8080/claro.html
+echo   - Entel:    http://localhost:8080/entel
+echo   - Movistar: http://localhost:8080/movistar
+echo   - Claro:    http://localhost:8080/claro
 echo.
-echo Abriendo aplicacion en http://localhost:8080/movistar.html ...
-start http://localhost:8080/movistar.html
+echo Abriendo aplicacion en http://localhost:8080/movistar ...
+start http://localhost:8080/movistar
 python server.py
 pause

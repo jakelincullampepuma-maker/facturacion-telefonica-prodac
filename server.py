@@ -100,17 +100,37 @@ class MovistarHTTPHandler(http.server.SimpleHTTPRequestHandler):
             super().log_message("%s %s", self.command, path)
 
     def send_head(self):
+        parsed = urllib.parse.urlsplit(self.path)
+        path = urllib.parse.unquote(parsed.path)
+        pages = {f"/{operator}": f"/{operator}.html"
+                 for operator in ("claro", "movistar", "entel")}
+        redirects = {"/": "/claro", "/index.html": "/claro"}
+        for route, filename in pages.items():
+            redirects[filename] = route
+            redirects[route + "/"] = route
+        if path in redirects:
+            location = redirects[path] + ("?" + parsed.query if parsed.query else "")
+            self.send_response(301)
+            self.send_header("Location", location)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return None
+
         # SimpleHTTPRequestHandler expondría .git, .env, data y pruebas.
         # Sólo se sirven los recursos públicos de la aplicación.
-        path = urllib.parse.unquote(urllib.parse.urlparse(self.path).path)
-        public_pages = {"/", "/index.html", "/claro.html", "/movistar.html", "/entel.html"}
-        allowed = path in public_pages or re.fullmatch(r"/(?:js|css)/[A-Za-z0-9_-]+\.(?:js|css)", path)
-        target = Path(self.translate_path(self.path)).resolve()
+        allowed = path in pages or re.fullmatch(r"/(?:js|css)/[A-Za-z0-9_-]+\.(?:js|css)", path)
+        internal_path = urllib.parse.urlunsplit(("", "", pages.get(path, path), parsed.query, ""))
+        target = Path(self.translate_path(internal_path)).resolve()
         root = Path(DIRECTORY).resolve()
         if not allowed or not target.is_relative_to(root):
             self.send_error(404, "Recurso no disponible.")
             return None
-        return super().send_head()
+        original_path = self.path
+        try:
+            self.path = internal_path
+            return super().send_head()
+        finally:
+            self.path = original_path
 
     def list_directory(self, path):
         self.send_error(404, "Recurso no disponible.")
@@ -410,9 +430,9 @@ if __name__ == "__main__":
     with ThreadedServer(("0.0.0.0", PORT), MovistarHTTPHandler) as httpd:
         print("=" * 60)
         print(f" Servidor iniciado en:   http://localhost:{PORT}")
-        print(f"   -> Módulo Entel:     http://localhost:{PORT}/entel.html")
-        print(f"   -> Módulo Movistar:  http://localhost:{PORT}/movistar.html")
-        print(f"   -> Módulo Claro:     http://localhost:{PORT}/claro.html")
+        print(f"   -> Módulo Entel:     http://localhost:{PORT}/entel")
+        print(f"   -> Módulo Movistar:  http://localhost:{PORT}/movistar")
+        print(f"   -> Módulo Claro:     http://localhost:{PORT}/claro")
         print(f" Directorio base:       {DIRECTORY}")
         print(" Presione Ctrl+C para detener.")
         print("=" * 60)

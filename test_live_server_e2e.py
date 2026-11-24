@@ -43,9 +43,9 @@ class TestLiveServerE2E(unittest.TestCase):
 
     def test_01_static_files_served_same_origin(self):
         urls = [
-            (f"{self.base}/entel.html", "Módulo Entel"),
-            (f"{self.base}/movistar.html", "Módulo Movistar"),
-            (f"{self.base}/claro.html", "Claro"),
+            (f"{self.base}/entel", "Módulo Entel"),
+            (f"{self.base}/movistar", "Módulo Movistar"),
+            (f"{self.base}/claro", "Claro"),
             (f"{self.base}/js/entel.js", "stateKey"),
             (f"{self.base}/css/styles.css", "font"),
             (f"{self.base}/css/components.css", "upload-panel-card"),

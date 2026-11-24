@@ -45,7 +45,7 @@ class ClaroBrowserTests(unittest.TestCase):
             # Esta comprobación de HTML/CSS local no depende de las fuentes remotas.
             context.route('https://fonts.googleapis.com/**', lambda route: route.abort())
             context.route('https://fonts.gstatic.com/**', lambda route: route.abort())
-            for path in ['/claro.html','/']:
+            for path in ['/claro','/']:
                 page=context.new_page();page.goto(self.base+path)
                 self.assert_results_hidden(page)
                 self.assertEqual(page.locator('h1').inner_text(),'Módulo Claro')
@@ -55,7 +55,7 @@ class ClaroBrowserTests(unittest.TestCase):
     def test_three_cards_tabs_and_preserved_download(self):
         with self.browser.new_context(accept_downloads=True,viewport={'width':1440,'height':1000}) as context:
             page=context.new_page(); errors=[]; page.on('pageerror',lambda error:errors.append(str(error)))
-            page.goto(self.base+'/claro.html')
+            page.goto(self.base+'/claro')
             self.assertTrue(page.locator('#tab-prodac').is_visible())
             self.assertTrue(page.locator('#tab-prodimin').is_visible())
             self.assertEqual(page.locator('.upload-file-card').count(),3)
@@ -113,7 +113,7 @@ class ClaroBrowserTests(unittest.TestCase):
             self.assert_results_hidden(page)
     def test_processing_error_and_stale_responses_stay_hidden(self):
         with self.browser.new_context() as context:
-            page=context.new_page();page.goto(self.base+'/claro.html');page.locator('#tab-prodimin').click()
+            page=context.new_page();page.goto(self.base+'/claro');page.locator('#tab-prodimin').click()
             files=fixtures();self.load(page,files)
             with page.expect_response('**/api/claro/process') as response:
                 page.locator('#btn-process-files').click()
@@ -154,7 +154,7 @@ class ClaroBrowserTests(unittest.TestCase):
                ('difference',fixtures(total=19.01),'La conciliación no cuadra','NO CUADRA',0)]
         for name,files,title,status,missing in cases:
             with self.subTest(case=name),self.browser.new_context() as context:
-                page=context.new_page();page.goto(self.base+'/claro.html');page.locator('#tab-prodimin').click()
+                page=context.new_page();page.goto(self.base+'/claro');page.locator('#tab-prodimin').click()
                 self.load(page,files);page.locator('#btn-process-files').click()
                 page.locator('#claroResultsSection').wait_for(state='visible')
                 self.assertEqual(page.locator('#banner-title-text').inner_text(),title)
@@ -166,7 +166,7 @@ class ClaroBrowserTests(unittest.TestCase):
     @unittest.skipUnless(all(os.environ.get(k) for k in ['CLARO_JULY_PDF','CLARO_INVENTORY','CLARO_JULY_REFERENCE']),'Documentos reales de julio no configurados.')
     def test_real_july_three_files(self):
         with self.browser.new_context(accept_downloads=True,viewport={'width':1440,'height':1000}) as context:
-            page=context.new_page();page.goto(self.base+'/claro.html')
+            page=context.new_page();page.goto(self.base+'/claro')
             self.assert_results_hidden(page)
             page.screenshot(path=str(self.out/'claro-initial.png'),full_page=True)
             page.locator('#tab-prodimin').click()

@@ -12,6 +12,10 @@ Sistema web corporativo para la conciliación mensual de facturación telefónic
 
 ## Navegación compartida
 
+En Render y con `python server.py`, las direcciones públicas son `/claro`, `/movistar` y `/entel`. El servidor conserva los archivos físicos `.html` y los sirve internamente. La raíz `/`, `/index.html`, las direcciones antiguas de los operadores con `.html` y sus variantes con barra final redirigen con `301` a la ruta limpia, conservando la consulta. Las API, `/health` y los recursos `/css/` y `/js/` mantienen sus rutas.
+
+Los enlaces se definen en `js/sidebar.js`, compartido por las páginas generadas con `build_views.py`; regenerar el HTML conserva esta navegación. Las rutas limpias requieren este servidor: abrir un archivo local permite el procesamiento independiente de Entel, pero no proporciona enrutamiento entre módulos.
+
 Claro (incluido `index.html`), Movistar y Entel montan la misma plantilla `js/sidebar.js` en un contenedor `.sidebar` con `data-operator`. Todos sus tamaños, márgenes, iconos y estados se definen en `css/styles.css`; el operador activo sólo cambia colores. El ancho fijo y el margen del contenido comparten `--sidebar-width: 240px`. En ventanas bajas el panel se desplaza de forma independiente.
 
 El menú contiene Dashboard, Cargar archivos, Resultados, Sin CC - Revisar y Descargar reporte, seguido de las tres operadoras. Cada módulo registra sus destinos con `AppSidebar.bind`; los destinos ocultos y las descargas pendientes no se activan. En pantallas de hasta 760 px se abre el mismo panel de 240 px mediante el botón de menú, sin desplazar el contenido.
@@ -60,7 +64,7 @@ Movistar utiliza las dependencias existentes: `pypdf`, `openpyxl` y `msoffcrypto
    ```
 2. El script verificará automáticamente las dependencias e iniciará el servidor local en:
    ```text
-   http://localhost:8080/movistar.html
+   http://localhost:8080/movistar
    ```
 3. O de forma manual ejecutando:
    ```bash
@@ -73,7 +77,7 @@ Movistar utiliza las dependencias existentes: `pypdf`, `openpyxl` y `msoffcrypto
 
 ### Claro
 
-Abra `http://localhost:8080/claro.html` después de iniciar el servidor. La pantalla conserva los selectores **PRODAC / PRODIMIN**, tres tarjetas numeradas y el dashboard de conciliación.
+Abra `http://localhost:8080/claro` después de iniciar el servidor. La pantalla conserva los selectores **PRODAC / PRODIMIN**, tres tarjetas numeradas y el dashboard de conciliación.
 
 Los tres archivos son obligatorios:
 

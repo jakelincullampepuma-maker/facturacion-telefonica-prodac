@@ -10,7 +10,7 @@ if %errorlevel% neq 0 (
     echo Instalando dependencias requeridas...
     pip install openpyxl pypdf msoffcrypto-tool
 )
-echo Abriendo aplicacion en http://localhost:8080/entel.html ...
-start http://localhost:8080/entel.html
+echo Abriendo aplicacion en http://localhost:8080/entel ...
+start http://localhost:8080/entel
 python server.py
 pause

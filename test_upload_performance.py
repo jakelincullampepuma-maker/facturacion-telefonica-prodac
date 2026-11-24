@@ -89,7 +89,7 @@ class UploadPerformanceTests(unittest.TestCase):
         for module in ['claro', 'movistar', 'entel']:
             with self.subTest(module=module), self.browser.new_context(viewport={'width':1440,'height':1000}) as context:
                 context.add_init_script(PROBE)
-                page = context.new_page(); page.goto(self.base+'/'+module+'.html')
+                page = context.new_page(); page.goto(self.base+'/'+module)
                 if module == 'entel': page.wait_for_function('window.EntelProcessor && window.UploadUI')
                 page.evaluate("""() => {
                   for (const [object, name] of [[window.XLSX,'read'],[window.pdfjsLib,'getDocument']]) {
@@ -136,7 +136,7 @@ class UploadPerformanceTests(unittest.TestCase):
         for module in ['claro','movistar','entel']:
             with self.subTest(module=module), self.browser.new_context() as context:
                 context.add_init_script(PROBE)
-                page=context.new_page();page.goto(self.base+'/'+module+'.html')
+                page=context.new_page();page.goto(self.base+'/'+module)
                 self.load_required(page,module)
                 pending=[]
                 if module=='entel':
@@ -164,7 +164,7 @@ class UploadPerformanceTests(unittest.TestCase):
         for module in ['claro','movistar','entel']:
             with self.subTest(module=module), self.browser.new_context() as context:
                 context.add_init_script(PROBE)
-                page=context.new_page();page.goto(self.base+'/'+module+'.html')
+                page=context.new_page();page.goto(self.base+'/'+module)
                 self.load_required(page,module)
                 for name,size in [('invalid.txt',100),('oversize.pdf',100*1024*1024+1)]:
                     before=page.evaluate('scrollY')
@@ -183,7 +183,7 @@ class UploadPerformanceTests(unittest.TestCase):
         for module in ['claro','movistar','entel']:
             with self.subTest(module=module),self.browser.new_context() as context:
                 context.add_init_script(PROBE)
-                page=context.new_page();page.set_default_timeout(120000);page.goto(self.base+'/'+module+'.html')
+                page=context.new_page();page.set_default_timeout(120000);page.goto(self.base+'/'+module)
                 self.load_required(page,module)
                 if module=='entel':
                     page.evaluate("""()=>{

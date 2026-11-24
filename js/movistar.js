@@ -191,9 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch(err) {
       if (inputPwd) inputPwd.value = '';
       if (window.location.hostname.endsWith('github.io')) {
-        showAlert(`No se pudo conectar con el servidor de procesamiento. Verifique la conexión o inicie el servidor local en <a href="http://localhost:8080/movistar.html" style="color:inherit;font-weight:700;text-decoration:underline;">http://localhost:8080/movistar.html</a>.`);
+        showAlert(`No se pudo conectar con el servidor de procesamiento. Verifique la conexión o inicie el servidor local en <a href="http://localhost:8080/movistar" style="color:inherit;font-weight:700;text-decoration:underline;">http://localhost:8080/movistar</a>.`);
       } else {
-        showAlert(`No se pudo procesar la solicitud. Verifique que el servidor esté activo y vuelva a intentarlo. Si abrió el HTML directamente, utilice <a href="http://localhost:8080/movistar.html" style="color:inherit;font-weight:700;text-decoration:underline;">http://localhost:8080/movistar.html</a>.`);
+        showAlert(`No se pudo procesar la solicitud. Verifique que el servidor esté activo y vuelva a intentarlo. Si abrió el HTML directamente, utilice <a href="http://localhost:8080/movistar" style="color:inherit;font-weight:700;text-decoration:underline;">http://localhost:8080/movistar</a>.`);
       }
     } finally {
       state.processing = false;

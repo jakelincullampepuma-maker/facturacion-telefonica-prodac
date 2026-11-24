@@ -18,7 +18,7 @@
   sidebar.id = 'shared-sidebar';
   sidebar.innerHTML = `
     <div class="sidebar-header">
-      <a href="index.html" class="sidebar-logo" aria-label="PRODAC, inicio">
+      <a href="/claro" class="sidebar-logo" aria-label="PRODAC, inicio">
         <svg class="prodac-logo-svg" viewBox="0 0 135 38" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M19 3L34 11.5V28.5L19 37L4 28.5V11.5L19 3Z" stroke="#00A3E0" stroke-width="3.5" stroke-linejoin="round"/>
           <path d="M19 12L25 15.5V22.5L19 26L13 22.5V15.5L19 12Z" stroke="#00A3E0" stroke-width="2.5" stroke-linejoin="round"/>
@@ -31,7 +31,7 @@
       ${links.map(([id,label]) => `<button type="button" class="nav-item sidebar-link${id === 'dashboard' ? ' active' : ''}" id="nav-${id}">${svg(icons[id])}<span>${label}</span></button>`).join('')}
       <div class="operators-section">
         <div class="sidebar-section-title">Páginas de Operadoras</div>
-        ${operators.map(([id,label]) => `<a href="${id}.html" class="operator-item operator-link${sidebar.dataset.operator === id ? ' active' : ''}" data-operator="${id}"${sidebar.dataset.operator === id ? ' aria-current="page"' : ''}>
+        ${operators.map(([id,label]) => `<a href="/${id}" class="operator-item operator-link${sidebar.dataset.operator === id ? ' active' : ''}" data-operator="${id}"${sidebar.dataset.operator === id ? ' aria-current="page"' : ''}>
           <span class="op-left"><span class="operator-icon" aria-hidden="true">${id === 'entel' ? 'e)' : id === 'movistar' ? 'M' : svg('<circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>')}</span><span>${label}</span></span>
           <span class="op-badge-soon">Habilitado</span>
         </a>`).join('')}

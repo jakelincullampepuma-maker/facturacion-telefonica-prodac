@@ -75,6 +75,38 @@ class SafeReleaseBrowserTests(unittest.TestCase):
             self.assertEqual(health['commit'], expected)
         self.report['health'] = health
 
+    def test_clean_routes_redirects_and_navigation(self):
+        with self.browser.new_context() as context:
+            query = '?source=smoke&x=a%2Fb&x=dos+valores'
+            aliases = {'/': '/claro', '/index.html': '/claro'}
+            for operator in VIEWS:
+                aliases[f'/{operator}.html'] = f'/{operator}'
+                aliases[f'/{operator}/'] = f'/{operator}'
+            for source, destination in aliases.items():
+                for suffix in ['', query]:
+                    response = context.request.get(self.base+source+suffix, max_redirects=0)
+                    self.assertEqual(response.status, 301)
+                    self.assertEqual(response.headers['location'], destination+suffix)
+                    self.assertEqual(response.body(), b'')
+            page = context.new_page()
+            page.set_default_timeout(120000)
+            errors, failed_resources = [], []
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            page.on('response', lambda r: failed_resources.append(r.url) if r.url.startswith(self.base) and r.status >= 400 else None)
+            page.goto(self.base+'/?source=home')
+            self.assertEqual(page.url, self.base+'/claro?source=home')
+            for operator in VIEWS:
+                page.locator(f'.operator-link[href="/{operator}"]').click()
+                self.assertEqual(page.url, self.base+f'/{operator}')
+                self.assertEqual(page.locator('.operator-link').evaluate_all('nodes=>nodes.map(n=>n.getAttribute("href"))'), ['/claro', '/movistar', '/entel'])
+                self.assertEqual(page.locator('.sidebar-logo').get_attribute('href'), '/claro')
+                self.assertTrue(page.locator('link[rel="stylesheet"]').evaluate_all('nodes=>nodes.every(n=>Boolean(n.sheet))'))
+                self.assertTrue(page.evaluate('Boolean(window.UploadUI && window.ModuleUI && window.AppSidebar)'))
+                self.assertTrue(page.locator('#'+VIEWS[operator]['result']).is_hidden())
+            self.assertEqual(errors, [])
+            self.assertEqual(failed_resources, [])
+            self.report['routes'] = {'permanent_redirects': aliases, 'queries_preserved': True, 'navigation': list(VIEWS), 'resource_errors': failed_resources, 'page_errors': errors}
+
     def navigation(self, page, download=False):
         for name in ['dashboard', 'upload', 'results', 'sin-cc', 'export']:
             if page.locator('#sidebar-menu-button').is_visible():
@@ -127,7 +159,8 @@ class SafeReleaseBrowserTests(unittest.TestCase):
                 Blob.prototype[name] = function(...args) { window.documentReads++; return original.apply(this,args); };
               }
             })();''')
-            page.goto(self.base+f'/{operator}.html')
+            page.goto(self.base+f'/{operator}')
+            self.assertEqual(page.url, self.base+f'/{operator}')
             page.evaluate('document.fonts.ready')
             results = page.locator('#'+VIEWS[operator]['result'])
             self.assertTrue(results.is_hidden())

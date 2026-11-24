@@ -1,8 +1,11 @@
 """Pruebas portables de servidor, privacidad, caché y API Movistar."""
 import datetime
+import http.client
 import io
 import json
 import os
+from pathlib import Path
+import re
 import threading
 import unittest
 import urllib.error
@@ -33,13 +36,53 @@ class TestReleaseServer(unittest.TestCase):
                 data = json.load(response)
             self.assertEqual(data["status"], "ok")
             self.assertEqual(data["commit"], "test-commit")
-        for path in ["/", "/claro.html", "/movistar.html", "/entel.html", "/js/entelWorkbook.js", "/css/styles.css"]:
+        for path in ["/claro", "/movistar", "/entel", "/js/entelWorkbook.js", "/css/styles.css"]:
             with urllib.request.urlopen(self.base + path) as response:
                 self.assertEqual(response.status, 200)
         req = urllib.request.Request(self.base + "/health", method="HEAD")
         with urllib.request.urlopen(req) as response:
             self.assertEqual(response.status, 200)
             self.assertEqual(response.read(), b"")
+
+    def test_clean_pages_and_their_local_assets(self):
+        for operator in ("claro", "movistar", "entel"):
+            with self.subTest(operator=operator):
+                connection = http.client.HTTPConnection(*self.httpd.server_address)
+                self.addCleanup(connection.close)
+                connection.request("GET", f"/{operator}?source=direct")
+                response = connection.getresponse()
+                self.assertEqual(response.status, 200)
+                html = response.read()
+                self.assertEqual(html, (Path(server.DIRECTORY) / f"{operator}.html").read_bytes())
+                assets = re.findall(r'(?:src|href)="((?:js|css)/[^\"]+)"', html.decode("utf-8"))
+                self.assertTrue(any(asset.endswith(".css") for asset in assets))
+                self.assertTrue(any(asset.endswith(".js") for asset in assets))
+                for asset in assets:
+                    with urllib.request.urlopen(self.base + "/" + asset) as resource:
+                        self.assertEqual(resource.status, 200)
+                connection.request("HEAD", f"/{operator}")
+                response = connection.getresponse()
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.read(), b"")
+
+    def test_permanent_redirects_keep_query_parameters(self):
+        aliases = {"/": "/claro", "/index.html": "/claro"}
+        for operator in ("claro", "movistar", "entel"):
+            aliases[f"/{operator}.html"] = f"/{operator}"
+            aliases[f"/{operator}/"] = f"/{operator}"
+        for method in ("GET", "HEAD"):
+            for source, destination in aliases.items():
+                for query in ("", "?empresa=PRODIMIN&x=a%2Fb&x=dos+valores&empty="):
+                    with self.subTest(method=method, source=source, query=query):
+                        connection = http.client.HTTPConnection(*self.httpd.server_address)
+                        try:
+                            connection.request(method, source + query)
+                            response = connection.getresponse()
+                            self.assertEqual(response.status, 301)
+                            self.assertEqual(response.getheader("Location"), destination + query)
+                            self.assertEqual(response.read(), b"")
+                        finally:
+                            connection.close()
 
     def test_private_paths_are_not_served(self):
         for path in ["/.git/config", "/.env", "/.env.test", "/data/", "/data/inventario_movistar.xlsx",

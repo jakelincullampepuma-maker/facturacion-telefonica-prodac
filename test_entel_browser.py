@@ -50,7 +50,7 @@ class BrowserTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         OUT.mkdir(parents=True, exist_ok=True)
-        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(ROOT))
+        handler = server.AppCelularesHTTPHandler
         cls.httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
         cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
         cls.thread.start()
@@ -77,7 +77,7 @@ class BrowserTests(unittest.TestCase):
     def entel_page(self, local=False):
         page = self.context.new_page()
         page.set_default_timeout(60000)
-        page.goto((ROOT / "entel.html").as_uri() if local else self.base + "/entel.html")
+        page.goto((ROOT / "entel.html").as_uri() if local else self.base + "/entel")
         page.wait_for_function("window.EntelProcessor && window.EntelWorkbook && window.UploadUI")
         # Mantiene el resultado observable sólo dentro del navegador de prueba.
         page.evaluate("""() => {
@@ -315,7 +315,7 @@ class BrowserTests(unittest.TestCase):
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.on("dialog", lambda d: d.accept())
-        page.goto(claro_base + "/claro.html")
+        page.goto(claro_base + "/claro")
         for input_id, path in [("input-claro-file", x), ("input-inv-file", i), ("input-pdf-file", p)]:
             page.locator("#" + input_id).set_input_files(str(path))
         page.locator("#btn-process-files").click()
@@ -329,7 +329,7 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(result.sheetnames, ["Factura Detallada", "Hoja2", "Hoja1"])
         self.assertEqual(len(result['Hoja1']._pivots), 1)
         self.assertEqual(result['Hoja1']['H9'].value, 17.5)
-        page.locator('a[href="entel.html"]').click()
+        page.locator('a[href="/entel"]').click()
         page.wait_for_function("window.EntelProcessor && window.UploadUI")
         self.assertIn("Módulo Entel", page.title())
         self.assertEqual(errors, [])

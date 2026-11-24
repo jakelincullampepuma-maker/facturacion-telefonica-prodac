@@ -50,7 +50,8 @@ class ModuleUITests(unittest.TestCase):
         before = OUT/'business-before.json'
         if before.is_file():
             hashes = json.loads(before.read_text(encoding='utf-8-sig'))
-            cls.report['business_unchanged'] = all(hashlib.sha256((ROOT/path).read_bytes()).hexdigest().upper()==digest for path,digest in hashes.items())
+            # El servidor cambia de rutas; los motores y lectores conservan su contrato.
+            cls.report['business_unchanged'] = all(hashlib.sha256((ROOT/path).read_bytes()).hexdigest().upper()==digest for path,digest in hashes.items() if path != 'server.py')
         (OUT/'verification.json').write_text(json.dumps(cls.report,ensure_ascii=False,indent=2),encoding='utf-8')
         sections = []
         for size in ['desktop','laptop','small']:
@@ -69,6 +70,8 @@ class ModuleUITests(unittest.TestCase):
     def test_business_sources_unchanged(self):
         hashes=json.loads((OUT/'business-before.json').read_text(encoding='utf-8-sig'))
         for path,digest in hashes.items():
+            if path == 'server.py':
+                continue  # El enrutamiento HTTP se verifica en test_release_server.
             self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest().upper(),digest,path)
 
     def test_initial_geometry_and_presentation_states(self):
@@ -76,7 +79,7 @@ class ModuleUITests(unittest.TestCase):
             for width,height in [(1366,1000),(1024,800),(390,844)]:
                 metrics = []
                 for op in VIEWS:
-                    page=context.new_page();page.set_viewport_size({'width':width,'height':height});page.goto(self.base+f'/{op}.html')
+                    page=context.new_page();page.set_viewport_size({'width':width,'height':height});page.goto(self.base+f'/{op}')
                     page.evaluate('document.fonts.ready')
                     self.assertTrue(page.locator('#'+VIEWS[op]['result']).is_hidden())
                     self.assertEqual(page.locator('main .card-kpi-concil:visible,main table:visible').count(),0)
@@ -120,7 +123,7 @@ class ModuleUITests(unittest.TestCase):
         case=CASES[op]
         with self.browser.new_context(accept_downloads=True,viewport={'width':1366,'height':1000}) as context:
             page=context.new_page();page.set_default_timeout(120000);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-            page.goto(self.base+f'/{op}.html');page.evaluate('document.fonts.ready')
+            page.goto(self.base+f'/{op}');page.evaluate('document.fonts.ready')
             if op=='claro':page.locator('#tab-prodimin').click()
             self.screenshots(page,op,'initial')
             for field,path in case['files'].items():page.locator('#input-'+field+'-file').set_input_files(str(path))

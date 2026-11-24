@@ -46,7 +46,7 @@ class OperatorLayoutTests(unittest.TestCase):
     def page(self, context, module):
         page = context.new_page()
         page.set_default_timeout(120000)
-        page.goto(self.base + "/" + module + ".html")
+        page.goto(self.base + "/" + module)
         page.evaluate("document.fonts.ready")
         return page
 
@@ -68,7 +68,7 @@ class OperatorLayoutTests(unittest.TestCase):
             header:measure(document.querySelector('.sidebar-header')),nav:measure(nav),
             footer:measure(document.querySelector('.sidebar-footer')),main:measure(document.querySelector('.main-wrapper')),
             button:measure(nav.querySelector('.nav-item')),
-            badge:measure(nav.querySelector('a[href="entel.html"] .op-badge-soon')),
+            badge:measure(nav.querySelector('a[href="/entel"] .op-badge-soon')),
             options:[...nav.querySelectorAll('button,a')].map(measure),
             labels:[...nav.querySelectorAll('.sidebar-link')].map(e=>e.textContent.trim()),
             activeOperator:nav.querySelector('.operator-link.active').dataset.operator,
@@ -154,9 +154,9 @@ class OperatorLayoutTests(unittest.TestCase):
                 data = self.metrics(page)
                 self.assertGreater(data["sidebar"]["scrollHeight"], data["sidebar"]["clientHeight"])
                 # En una ventana baja, se puede llegar a la última opción.
-                page.locator('.sidebar a[href="entel.html"]').scroll_into_view_if_needed()
+                page.locator('.sidebar a[href="/entel"]').scroll_into_view_if_needed()
                 self.assertGreater(page.locator(".sidebar").evaluate("e=>e.scrollTop"), 0)
-                rect = page.locator('.sidebar a[href="entel.html"]').bounding_box()
+                rect = page.locator('.sidebar a[href="/entel"]').bounding_box()
                 self.assertLessEqual(rect["y"] + rect["height"], 400)
                 # El contenido largo a la derecha debe seguir desplazándose.
                 page.evaluate("""() => {

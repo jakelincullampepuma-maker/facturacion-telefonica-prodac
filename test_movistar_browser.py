@@ -47,7 +47,7 @@ class MovistarBrowserTests(unittest.TestCase):
     def process(self, files, password, name):
         page = self.context.new_page()
         page.set_default_timeout(240000)
-        page.goto(self.base + "/movistar.html")
+        page.goto(self.base + "/movistar")
         if any(k in files for k in ('fact_file', 'traf_file', 'cargos_file')):
             page.locator('#details-optional-val').evaluate('(e) => e.open = true')
         for key, path in files.items():
@@ -130,7 +130,7 @@ class MovistarBrowserTests(unittest.TestCase):
         page = self.context.new_page()
         errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))
-        page.goto(self.base + '/movistar.html')
+        page.goto(self.base + '/movistar')
         self.assertFalse(page.locator('#details-optional-val').evaluate('e => e.open'))
         self.assertTrue(page.locator('#btn-process-files').is_disabled())
         for key, name in [('pdf_file', 'pdf'), ('inventory_file', 'inventory')]:
